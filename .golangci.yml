@@ -1,0 +1,65 @@
+# If you find one linter is annoying, you can disable it in one line using //nolint
+# var bad_name int //nolint
+# var bad_name int //nolint:golint,unused
+run:
+  skip-dirs:
+    - docs
+    - .cache
+
+linters-settings:
+  gocritic:
+    disabled-checks:
+      - singleCaseSwitch
+      - ifElseChain  # Don't advice "if-else to switch"
+  stylecheck:
+    checks: ["all", "-ST1003"]
+
+# List of regexps of issue texts to exclude
+issues:
+  exclude-rules:
+    - linters: [staticcheck]
+      text: "SA1019"                  # this is rule for deprecated method
+    - linters: [goerr113]
+      text: "do not define dynamic errors, use wrapped static errors instead" # This rule to avoid opinionated check fmt.Errorf("text")
+    # Skip 1.13 errors check and unused for test files
+    - path: _test\.go
+      linters:
+        - goerr113
+        - unused
+
+# For full list of linters and how to configure them, check https://golangci-lint.run/usage/linters/
+linters:
+  disable-all: true
+  enable:
+    - goconst     # Finds repeated strings that could be replaced by a constant
+    - gocritic    # An linter chan check many bugs, performance and style issues
+    - goerr113    # Check if we are using == or != to compare error (except nil)
+    - gofmt       # Make sure gofmt is used to format code
+    - goimports   # Import style
+    - gosimple    # Provide advice to simplify code
+    - govet       # Check if go vet report problems
+    - ineffassign # Detects when assignments to existing variables are not used
+    - misspell    # Finds commonly misspelled English words in comments
+    - makezero    # To prevent bugs caused by initializing a slice with non-constant length and later appending to it.
+    - nolintlint  # You can use //nolint to exclude linter check. This linter reports ill-formed or insufficient nolint directives
+    - prealloc    # Finds slice declarations that could potentially be preallocated
+    - promlinter  # Check Prometheus metrics naming via promlint
+    - revive      # Configurable, extensible, and beautiful drop-in replacement for golint
+    - staticcheck # More static analysis checks
+    - stylecheck  # Stylecheck is a replacement for golint
+    - unconvert   # Remove unnecessary type conversions
+    - unused      # Find unused functions, constants, types and variables
+    - wastedassign # wastedassign finds wasted assignment statements.
+
+    # Can also enable more linters if we need.
+    # - wrapcheck    # Checks that errors returned from external packages are wrapped
+    # - cyclop    # checks function and package cyclomatic complexity
+    # - deadcode  # Finds unused code
+    # - gocognit  # Computes and checks the cognitive complexity of functions
+    # - gocyclo   # Computes and checks the cyclomatic complexity of functions
+    # - gomnd     # An analyzer to detect magic numbers.
+    # - nestif    # Reports deeply nested if statements
+    # - unparam   # Reports unused function parameters
+    # - gosec       # Inspects source code for security problems
+    # - gofumpt   # Require you to use gofumpt (a stricter version of gofmt) to check codes
+
