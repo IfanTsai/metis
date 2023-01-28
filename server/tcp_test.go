@@ -1,11 +1,10 @@
-package server_test
+package server
 
 import (
 	"net"
 	"syscall"
 	"testing"
 
-	"github.com/IfanTsai/metis/server"
 	"github.com/IfanTsai/metis/socket"
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +45,7 @@ func TestCreateTCPServer(t *testing.T) {
 }
 
 func runEchoTCPSever(t *testing.T, port uint16, startCh chan<- struct{}, connectedCh, endCh <-chan struct{}) {
-	listenFd, err := server.CreateTCPServer("127.0.0.1", port)
+	listenFd, err := CreateTCPServer("127.0.0.1", port)
 	require.NoError(t, err)
 	defer listenFd.Close()
 
