@@ -1,6 +1,9 @@
 package server
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 // TODO: implement processCommand
 func processCommand(client *Client) {
@@ -9,5 +12,8 @@ func processCommand(client *Client) {
 		fmt.Printf("%v\n", arg.Value)
 	}
 	fmt.Println("-----------------------")
-	client.fd.Write([]byte("+OK\r\n"))
+
+	if err := client.addReplyString("+OK\r\n"); err != nil {
+		log.Printf("addReply error: %v", err)
+	}
 }

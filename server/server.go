@@ -5,6 +5,7 @@ import (
 	"syscall"
 
 	"github.com/IfanTsai/metis/ae"
+	"github.com/IfanTsai/metis/datastruct"
 	"github.com/IfanTsai/metis/socket"
 	"github.com/pkg/errors"
 )
@@ -110,5 +111,43 @@ func readQueryFromClient(el *ae.EventLoop, fd socket.FD, clientData any) {
 		client.free()
 
 		return
+	}
+}
+
+func sendReplayToClient(el *ae.EventLoop, fd socket.FD, clientData any) {
+	client := clientData.(*Client)
+	for client.replayHead.Len() > 0 {
+		element := client.replayHead.Front()
+		replayObject := element.Value.(*datastruct.Object)
+		buf := []byte(replayObject.Value.(string))
+		if client.sentLen < len(buf) {
+			nWritten, err := client.fd.Write(buf[client.sentLen:])
+			if err != nil {
+				switch errors.Cause(err).(syscall.Errno) {
+				case syscall.EAGAIN, syscall.EINTR:
+				default:
+					log.Printf("write error: %v", err)
+					client.free()
+				}
+
+				return
+			}
+
+			client.sentLen += nWritten
+			if client.sentLen == len(buf) {
+				client.sentLen = 0
+				client.replayHead.Remove(element)
+			} else {
+				break
+			}
+		}
+	}
+
+	if client.replayHead.Len() == 0 {
+		if err := el.RemoveFileEvent(client.fd, ae.TypeFileEventWritable); err != nil {
+			log.Printf("failed to remove file event: %v", err)
+
+			return
+		}
 	}
 }

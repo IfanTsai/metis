@@ -2,11 +2,13 @@ package server
 
 import (
 	"bytes"
+	"container/list"
 	"strconv"
 
 	"github.com/IfanTsai/metis/ae"
 	"github.com/IfanTsai/metis/datastruct"
 	"github.com/IfanTsai/metis/socket"
+	"github.com/pkg/errors"
 )
 
 type CommandType int
@@ -27,13 +29,16 @@ type Client struct {
 	args         []*datastruct.Object
 	multiBulkLen int
 	bulkLen      int
+	replayHead   *list.List
+	sentLen      int
 }
 
 func NewClient(srv *Server, fd socket.FD) *Client {
 	return &Client{
-		srv:      srv,
-		fd:       fd,
-		queryBuf: make([]byte, MaxBulk),
+		srv:        srv,
+		fd:         fd,
+		queryBuf:   make([]byte, MaxBulk),
+		replayHead: list.New(),
 	}
 }
 
@@ -50,13 +55,32 @@ func (c *Client) moveToNextLineInQueryBuffer(indexCRLF int) {
 	c.queryLen -= indexCRLF + 2
 }
 
-func (c *Client) free() {
-	if c.srv != nil && c.srv.eventLoop != nil {
-		c.srv.eventLoop.RemoveFileEvent(c.fd, ae.TypeFileEventReadable)
-		c.srv.eventLoop.RemoveFileEvent(c.fd, ae.TypeFileEventWritable)
+func (c *Client) addReply(object *datastruct.Object) error {
+	if c.replayHead.Len() == 0 {
+		if err := c.srv.eventLoop.AddFileEvent(c.fd, ae.TypeFileEventWritable, sendReplayToClient, c); err != nil {
+			return errors.Wrap(err, "failed to add writable file event")
+		}
 	}
 
-	delete(c.srv.clients, c.fd)
+	c.replayHead.PushBack(object)
+
+	return nil
+}
+
+func (c *Client) addReplyString(str string) error {
+	return c.addReply(datastruct.NewObject(datastruct.ObjectTypeString, str))
+}
+
+func (c *Client) free() {
+	if c.srv != nil {
+		delete(c.srv.clients, c.fd)
+
+		if c.srv.eventLoop != nil {
+			c.srv.eventLoop.RemoveFileEvent(c.fd, ae.TypeFileEventReadable)
+			c.srv.eventLoop.RemoveFileEvent(c.fd, ae.TypeFileEventWritable)
+		}
+	}
+
 	c.fd.Close()
 }
 
