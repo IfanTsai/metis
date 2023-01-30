@@ -6,24 +6,21 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/IfanTsai/metis/configure"
 	"github.com/IfanTsai/metis/server"
 )
 
-const (
-	ip   = "0.0.0.0"
-	port = 8080
-)
-
 func main() {
+	config := configure.LoadConfig("./", "toml")
 	metisServer := server.NewServer()
 
 	go func() {
-		if err := metisServer.Run("0.0.0.0", 8080); err != nil {
-			panic(err)
+		if err := metisServer.Run(config.Host, config.Port); err != nil {
+			log.Panicln("metis server run error: ", err)
 		}
 	}()
 
-	log.Printf("metis server is running on %s:%d", ip, port)
+	log.Printf("metis server is running on %s:%d", config.Host, config.Port)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
