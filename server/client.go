@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"container/list"
+	"fmt"
 	"strconv"
 
 	"github.com/IfanTsai/metis/ae"
@@ -69,6 +70,10 @@ func (c *Client) addReply(object *datastruct.Object) error {
 
 func (c *Client) addReplyString(str string) error {
 	return c.addReply(datastruct.NewObject(datastruct.ObjectTypeString, str))
+}
+
+func (c *Client) addReplyStringf(format string, args ...any) error {
+	return c.addReplyString(fmt.Sprintf(format, args...))
 }
 
 func (c *Client) free() {

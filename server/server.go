@@ -5,6 +5,7 @@ import (
 	"syscall"
 
 	"github.com/IfanTsai/metis/ae"
+	"github.com/IfanTsai/metis/database"
 	"github.com/IfanTsai/metis/datastruct"
 	"github.com/IfanTsai/metis/socket"
 	"github.com/pkg/errors"
@@ -16,11 +17,13 @@ type Server struct {
 	fd        socket.FD
 	clients   map[socket.FD]*Client
 	eventLoop *ae.EventLoop
+	db        *database.Databse
 }
 
 func NewServer() *Server {
 	return &Server{
 		clients: make(map[socket.FD]*Client),
+		db:      database.NewDatabase(),
 	}
 }
 
