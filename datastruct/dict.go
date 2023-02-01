@@ -3,6 +3,7 @@ package datastruct
 import (
 	"log"
 	"math"
+	"math/rand"
 
 	"github.com/pkg/errors"
 )
@@ -40,7 +41,7 @@ type hashTable struct {
 type Dict struct {
 	DictType
 	hashTables  [2]*hashTable
-	rehashIndex int
+	rehashIndex int64
 }
 
 func NewDict(dictType DictType) *Dict {
@@ -84,6 +85,48 @@ func (d *Dict) Get(key *Object) *Object {
 	}
 
 	return entry.Value
+}
+
+// GetRandomKey returns a random entry from the dict.
+func (d *Dict) GetRandomKey() *Entry {
+	if d.hashTables[0] == nil || d.hashTables[0].used == 0 {
+		return nil
+	}
+
+	if d.isRehashing() {
+		d.rehashStep()
+	}
+
+	var bucket *Entry
+	bucketSize := [2]int64{int64(len(d.hashTables[0].tables)), 0}
+	if d.isRehashing() {
+		bucketSize[1] = int64(len(d.hashTables[1].tables))
+		for bucket == nil {
+			randomIndex := d.rehashIndex + rand.Int63()%(bucketSize[0]+bucketSize[1]-d.rehashIndex)
+			if randomIndex >= bucketSize[0] {
+				bucket = d.hashTables[1].tables[randomIndex-bucketSize[0]]
+			} else {
+				bucket = d.hashTables[0].tables[randomIndex]
+			}
+		}
+	} else {
+		for bucket == nil {
+			randomIndex := rand.Int63() % bucketSize[0]
+			bucket = d.hashTables[0].tables[randomIndex]
+		}
+	}
+
+	listLength := 0
+	for entry := bucket; entry != nil; entry = entry.next {
+		listLength++
+	}
+
+	bucketRandomIndex := rand.Intn(listLength)
+	for i := 0; i < bucketRandomIndex; i++ {
+		bucket = bucket.next
+	}
+
+	return bucket
 }
 
 func (d *Dict) Delete(key *Object) error {
