@@ -1,13 +1,17 @@
 package database
 
-import "github.com/IfanTsai/metis/datastruct"
+import (
+	"github.com/IfanTsai/metis/datastruct"
+)
 
 type Databse struct {
-	Dict *datastruct.Dict
+	Dict   *datastruct.Dict
+	Expire *datastruct.Dict
 }
 
 func NewDatabase() *Databse {
 	return &Databse{
-		Dict: datastruct.NewDict(&dictType{}),
+		Dict:   datastruct.NewDict(&dictType{}),
+		Expire: datastruct.NewDict(&dictType{}),
 	}
 }

@@ -38,7 +38,7 @@ func NewClient(srv *Server, fd socket.FD) *Client {
 	return &Client{
 		srv:        srv,
 		fd:         fd,
-		queryBuf:   make([]byte, MaxBulk),
+		queryBuf:   make([]byte, maxBulk),
 		replayHead: list.New(),
 	}
 }

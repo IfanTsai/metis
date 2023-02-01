@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 	"syscall"
+	"time"
 
 	"github.com/IfanTsai/metis/ae"
 	"github.com/IfanTsai/metis/database"
@@ -11,7 +12,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-const MaxBulk = 1024 * 4
+const (
+	maxBulk               = 1024 * 4
+	checkExpireEntryCount = 100
+	checkExpireInterval   = 100
+)
 
 type Server struct {
 	fd        socket.FD
@@ -40,6 +45,10 @@ func (s *Server) Run(ip string, port uint16) error {
 	}
 
 	if err := eventLoop.AddFileEvent(listenFd, ae.TypeFileEventReadable, acceptTCPHandler, s); err != nil {
+		return err
+	}
+
+	if err := eventLoop.AddTimeEvent(ae.TypeTimeEventNormal, checkExpireInterval, expireKeyCronJob, s); err != nil {
 		return err
 	}
 
@@ -84,8 +93,8 @@ func acceptTCPHandler(el *ae.EventLoop, fd socket.FD, extra any) {
 
 func readQueryFromClient(el *ae.EventLoop, fd socket.FD, clientData any) {
 	client := clientData.(*Client)
-	if len(client.queryBuf)-client.queryLen < MaxBulk {
-		client.queryBuf = append(client.queryBuf, make([]byte, MaxBulk)...)
+	if len(client.queryBuf)-client.queryLen < maxBulk {
+		client.queryBuf = append(client.queryBuf, make([]byte, maxBulk)...)
 	}
 
 	nRead, err := fd.Read(client.queryBuf[client.queryLen:])
@@ -151,6 +160,27 @@ func sendReplayToClient(el *ae.EventLoop, fd socket.FD, clientData any) {
 			log.Printf("failed to remove file event: %v", err)
 
 			return
+		}
+	}
+}
+
+func expireKeyCronJob(el *ae.EventLoop, id int64, clientData any) {
+	srv := clientData.(*Server)
+	for i := 0; i < checkExpireEntryCount; i++ {
+		entry := srv.db.Expire.GetRandomKey()
+		if entry == nil {
+			break
+		}
+
+		when, err := entry.Value.IntValue()
+		if err != nil {
+			log.Println("failed to get int value:", err)
+			continue
+		}
+
+		if when < time.Now().UnixMilli() {
+			srv.db.Dict.Delete(entry.Key)
+			srv.db.Expire.Delete(entry.Key)
 		}
 	}
 }
