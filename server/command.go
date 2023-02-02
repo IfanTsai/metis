@@ -20,11 +20,39 @@ var commandTable = []command{
 	{"set", setCommand, -3},
 	{"expire", expireCommand, 3},
 	{"randomget", randomGetCommand, 1},
+	{"ttl", ttlCommand, 2},
 	// TODO: implement more commands
 }
 
 func pingCommand(client *Client) {
 	client.addReplyString("+PONG\r\n")
+}
+
+func ttlCommand(client *Client) {
+	key := client.args[1]
+
+	if client.srv.db.Dict.Find(key) == nil {
+		client.addReplyString(":-2\r\n")
+
+		return
+	}
+
+	expireObj := client.srv.db.Expire.Find(key)
+	if expireObj == nil {
+		client.addReplyString(":-1\r\n")
+
+		return
+	}
+
+	when, err := expireObj.Value.IntValue()
+	if err != nil {
+		client.addReplyStringf("-ERR expire value is not an intege, error: %v\r\n", err)
+
+		return
+	}
+
+	ttl := (when - time.Now().UnixMilli()) / 1000
+	client.addReplyStringf(":%d\r\n", ttl)
 }
 
 func randomGetCommand(client *Client) {
