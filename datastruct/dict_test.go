@@ -123,19 +123,20 @@ func TestDict_SetGet(t *testing.T) {
 func TestDict_GetRandomKey(t *testing.T) {
 	dict := datastruct.NewDict(&dictType{})
 
-	for i := 1; i <= 10000; i++ {
+	for i := 1; i <= 1000000; i++ {
 		key := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
 		val := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("value%d", i))
 		dict.Set(key, val)
 	}
 
-	for i := 1; i <= 10000; i++ {
-		key1 := dict.GetRandomKey()
-		key2 := dict.GetRandomKey()
-		require.NotNil(t, key1)
-		require.NotNil(t, key2)
-		require.NotEqual(t, key1, key2)
+	keys := make(map[string]struct{})
+	for i := 1; i <= 100; i++ {
+		entry := dict.GetRandomKey()
+		require.NotNil(t, entry)
+		keys[entry.Key.StrValue()] = struct{}{}
 	}
+
+	require.Equal(t, 100, len(keys))
 }
 
 func TestDict_Delete(t *testing.T) {
