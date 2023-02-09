@@ -50,6 +50,9 @@ linters:
     - unconvert   # Remove unnecessary type conversions
     - unused      # Find unused functions, constants, types and variables
     - wastedassign # wastedassign finds wasted assignment statements.
+    - musttag      # Enforces field tags in (un)marshaled structs
+    - gocheckcompilerdirectives # Check that go compiler directives (//go: comments) are valid and catch easy mistakes.
+    - usestdlibvars # Detect the possibility to use variables/constants from the Go standard library.
 
     # Can also enable more linters if we need.
     # - wrapcheck    # Checks that errors returned from external packages are wrapped
