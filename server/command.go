@@ -1,11 +1,15 @@
 package server
 
 import (
+	"log"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/IfanTsai/metis/database"
 	"github.com/IfanTsai/metis/datastruct"
+	"github.com/pkg/errors"
 )
 
 type command struct {
@@ -21,11 +25,53 @@ var commandTable = []command{
 	{"expire", expireCommand, 3},
 	{"randomget", randomGetCommand, 1},
 	{"ttl", ttlCommand, 2},
+	{"keys", keysCommand, 2},
 	// TODO: implement more commands
 }
 
 func pingCommand(client *Client) {
 	client.addReplyString("+PONG\r\n")
+}
+
+func keysCommand(client *Client) {
+	dict := client.srv.db.Dict
+	iter := datastruct.NewDictIterator(dict)
+	defer iter.Release()
+
+	pattern := client.args[1].StrValue()
+	keys := make([]string, 0, dict.Size())
+	for entry := iter.Next(); entry != nil; entry = iter.Next() {
+		key := entry.Key.StrValue()
+		matched := false
+
+		if pattern == "*" {
+			matched = true
+		} else {
+			reg, err := regexp.Compile(pattern)
+			if err != nil {
+				client.addReplyStringf("-ERR invalid pattern: %s, error: %v\r\n", pattern, err)
+				return
+			}
+
+			matched = reg.MatchString(key)
+		}
+
+		if matched {
+			expired, err := expireIfNeeded(client.srv.db, entry.Key)
+			if err != nil {
+				log.Println("expireIfNeeded error:", err)
+			}
+
+			if !expired {
+				keys = append(keys, key)
+			}
+		}
+	}
+
+	client.addReplyStringf("*%d\r\n", len(keys))
+	for _, key := range keys {
+		client.addReplyStringf("$%d\r\n%s\r\n", len(key), key)
+	}
 }
 
 func ttlCommand(client *Client) {
@@ -56,7 +102,25 @@ func ttlCommand(client *Client) {
 }
 
 func randomGetCommand(client *Client) {
-	entry := client.srv.db.Dict.GetRandomKey()
+	var entry *datastruct.DictEntry
+	for {
+		entry = client.srv.db.Dict.GetRandomKey()
+		if entry == nil {
+			client.addReplyString("$-1\r\n")
+
+			return
+		}
+
+		expired, err := expireIfNeeded(client.srv.db, entry.Key)
+		if err != nil {
+			log.Println("expireIfNeeded error:", err)
+		}
+
+		if !expired {
+			break
+		}
+	}
+
 	if entry == nil {
 		client.addReplyString("$-1\r\n")
 
@@ -78,19 +142,8 @@ func getCommand(client *Client) {
 	key := client.args[1]
 
 	// check if key expired
-	expireObj := client.srv.db.Expire.Find(key)
-	if expireObj != nil {
-		when, err := expireObj.Value.IntValue()
-		if err != nil {
-			client.addReplyStringf("-ERR expire value is not an intege, error: %v\r\n", err)
-
-			return
-		}
-
-		if when < time.Now().UnixMilli() {
-			client.srv.db.Dict.Delete(key)
-			client.srv.db.Expire.Delete(key)
-		}
+	if _, err := expireIfNeeded(client.srv.db, key); err != nil {
+		client.addReplyStringf("-ERR %v\r\n", err)
 	}
 
 	value := client.srv.db.Dict.Get(key)
@@ -129,6 +182,25 @@ func expireCommand(client *Client) {
 
 	client.srv.db.Expire.Set(client.args[1], expireObj)
 	client.addReplyString("+OK\r\n")
+}
+
+func expireIfNeeded(db *database.Databse, key *datastruct.Object) (bool, error) {
+	expireObj := db.Expire.Find(key)
+	if expireObj != nil {
+		when, err := expireObj.Value.IntValue()
+		if err != nil {
+			return false, errors.Wrap(err, "expire value is not an integer")
+		}
+
+		if when < time.Now().UnixMilli() {
+			db.Dict.Delete(key)
+			db.Expire.Delete(key)
+
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func lookupCommand(name string) *command {
