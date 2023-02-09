@@ -184,3 +184,23 @@ func TestGetNextPower(t *testing.T) {
 		require.Equal(t, testCase.expected, datastruct.GetNextPower(testCase.input))
 	}
 }
+
+func TestDictIterator_Next(t *testing.T) {
+	dict := datastruct.NewDict(&dictType{})
+
+	expectTestCaseMap := make(map[string]string)
+	for i := 1; i <= 1000; i++ {
+		key := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
+		val := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("value%d", i))
+		dict.Set(key, val)
+		expectTestCaseMap[key.StrValue()] = val.StrValue()
+	}
+
+	iter := datastruct.NewDictIterator(dict)
+	for entry := iter.Next(); entry != nil; entry = iter.Next() {
+		require.Equal(t, expectTestCaseMap[entry.Key.StrValue()], entry.Value.StrValue())
+		delete(expectTestCaseMap, entry.Key.StrValue())
+	}
+
+	require.Empty(t, expectTestCaseMap)
+}

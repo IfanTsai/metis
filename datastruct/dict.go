@@ -25,14 +25,14 @@ type DictType interface {
 	Equal(a, b *Object) bool
 }
 
-type Entry struct {
+type DictEntry struct {
 	Key   *Object
 	Value *Object
-	next  *Entry
+	next  *DictEntry
 }
 
 type hashTable struct {
-	tables   []*Entry
+	tables   []*DictEntry
 	size     int64
 	sizeMask int64
 	used     int64
@@ -42,6 +42,65 @@ type Dict struct {
 	DictType
 	hashTables  [2]*hashTable
 	rehashIndex int64
+	iterators   int // number of iterators currently running
+}
+
+type DictIterator struct {
+	dict  *Dict
+	table int
+	index int64
+	entry *DictEntry
+	next  *DictEntry
+}
+
+func NewDictIterator(dict *Dict) *DictIterator {
+	return &DictIterator{
+		dict:  dict,
+		table: 0,
+		index: -1,
+	}
+}
+
+func (di *DictIterator) Release() {
+	if di.index != -1 || di.dict.iterators != 0 {
+		di.dict.iterators--
+	}
+}
+
+func (di *DictIterator) Next() *DictEntry {
+	if di.dict.hashTables[0] == nil {
+		return nil
+	}
+
+	for {
+		if di.entry == nil {
+			if di.index == -1 && di.table == 0 {
+				di.dict.iterators++
+			}
+
+			di.index++
+			if di.index >= di.dict.hashTables[di.table].size {
+				if di.dict.isRehashing() && di.table == 0 {
+					di.table = 1
+					di.index = 0
+				} else {
+					break
+				}
+			}
+
+			di.entry = di.dict.hashTables[di.table].tables[di.index]
+		} else {
+			di.entry = di.next
+		}
+
+		if di.entry != nil {
+			di.next = di.entry.next
+
+			return di.entry
+		}
+	}
+
+	return nil
 }
 
 func NewDict(dictType DictType) *Dict {
@@ -70,7 +129,7 @@ func (d *Dict) Set(key, value *Object) {
 		hTable = d.hashTables[1]
 	}
 
-	hTable.tables[index] = &Entry{
+	hTable.tables[index] = &DictEntry{
 		Key:   key,
 		Value: value,
 		next:  hTable.tables[index],
@@ -88,7 +147,7 @@ func (d *Dict) Get(key *Object) *Object {
 }
 
 // GetRandomKey returns a random entry from the dict.
-func (d *Dict) GetRandomKey() *Entry {
+func (d *Dict) GetRandomKey() *DictEntry {
 	if d.hashTables[0] == nil || d.Size() == 0 {
 		return nil
 	}
@@ -97,7 +156,7 @@ func (d *Dict) GetRandomKey() *Entry {
 		d.rehashStep()
 	}
 
-	var bucket *Entry
+	var bucket *DictEntry
 	bucketSize := [2]int64{int64(len(d.hashTables[0].tables)), 0}
 	if d.isRehashing() {
 		bucketSize[1] = int64(len(d.hashTables[1].tables))
@@ -141,7 +200,7 @@ func (d *Dict) Delete(key *Object) error {
 	for table := 0; table <= 1; table++ {
 		index := d.Hash(key) & d.hashTables[table].sizeMask
 		entry := d.hashTables[table].tables[index]
-		var prev *Entry
+		var prev *DictEntry
 		for entry != nil {
 			if d.Equal(key, entry.Key) {
 				if prev != nil {
@@ -166,7 +225,7 @@ func (d *Dict) Delete(key *Object) error {
 	return ErrKeyNotFound
 }
 
-func (d *Dict) Find(key *Object) *Entry {
+func (d *Dict) Find(key *Object) *DictEntry {
 	if d.hashTables[0] == nil {
 		return nil
 	}
@@ -259,7 +318,7 @@ func (d *Dict) expand(size int64) error {
 	}
 
 	table := &hashTable{
-		tables:   make([]*Entry, realSize),
+		tables:   make([]*DictEntry, realSize),
 		size:     realSize,
 		sizeMask: realSize - 1,
 		used:     0,
@@ -280,7 +339,9 @@ func (d *Dict) expand(size int64) error {
 }
 
 func (d *Dict) rehashStep() {
-	d.rehash(rehashStepCount)
+	if d.iterators == 0 {
+		d.rehash(rehashStepCount)
+	}
 }
 
 func (d *Dict) rehash(step int) {
