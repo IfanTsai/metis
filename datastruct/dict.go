@@ -21,13 +21,13 @@ var (
 )
 
 type DictType interface {
-	Hash(a *Object) int64
-	Equal(a, b *Object) bool
+	Hash(a any) int64
+	Equal(a, b any) bool
 }
 
 type DictEntry struct {
-	Key   *Object
-	Value *Object
+	Key   any
+	Value any
 	next  *DictEntry
 }
 
@@ -110,7 +110,7 @@ func NewDict(dictType DictType) *Dict {
 	}
 }
 
-func (d *Dict) Set(key, value *Object) {
+func (d *Dict) Set(key, value any) {
 	if d.isRehashing() {
 		d.rehashStep()
 	}
@@ -137,7 +137,7 @@ func (d *Dict) Set(key, value *Object) {
 	hTable.used++
 }
 
-func (d *Dict) Get(key *Object) *Object {
+func (d *Dict) Get(key any) any {
 	entry := d.Find(key)
 	if entry == nil {
 		return nil
@@ -188,7 +188,7 @@ func (d *Dict) GetRandomKey() *DictEntry {
 	return bucket
 }
 
-func (d *Dict) Delete(key *Object) error {
+func (d *Dict) Delete(key any) error {
 	if d.hashTables[0] == nil {
 		return ErrNotInitialized
 	}
@@ -225,7 +225,7 @@ func (d *Dict) Delete(key *Object) error {
 	return ErrKeyNotFound
 }
 
-func (d *Dict) Find(key *Object) *DictEntry {
+func (d *Dict) Find(key any) *DictEntry {
 	if d.hashTables[0] == nil {
 		return nil
 	}
@@ -268,7 +268,7 @@ func (d *Dict) Size() int64 {
 // keyIndex returns the index of a free slot that can be used to store the given key.
 // if the key already exists, -1 is returned.
 // Note that if it is in the process of rehashing, the index is always returned in the second (new) hash table.
-func (d *Dict) keyIndex(key *Object) int64 {
+func (d *Dict) keyIndex(key any) int64 {
 	if err := d.expandIfNeeded(); err != nil {
 		log.Println(err)
 

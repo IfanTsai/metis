@@ -3,7 +3,6 @@ package server
 import (
 	"testing"
 
-	"github.com/IfanTsai/metis/datastruct"
 	"github.com/stretchr/testify/require"
 )
 
@@ -11,20 +10,17 @@ func TestProcessInlineBuffer(t *testing.T) {
 	testCases := []struct {
 		name     string
 		query    string
-		expected []*datastruct.Object
+		expected []string
 	}{
 		{
 			name:     "OK for simple string",
 			query:    "+OK\r\n",
-			expected: []*datastruct.Object{datastruct.NewObject(datastruct.ObjectTypeString, "OK")},
+			expected: []string{"OK"},
 		},
 		{
-			name:  "OK for error",
-			query: "-Error message\r\n",
-			expected: []*datastruct.Object{
-				datastruct.NewObject(datastruct.ObjectTypeString, "Error"),
-				datastruct.NewObject(datastruct.ObjectTypeString, "message"),
-			},
+			name:     "OK for error",
+			query:    "-Error message\r\n",
+			expected: []string{"Error", "message"},
 		},
 	}
 
@@ -47,21 +43,17 @@ func TestProcessBulkBuffer(t *testing.T) {
 	testCases := []struct {
 		name     string
 		query    string
-		expected []*datastruct.Object
+		expected []string
 	}{
 		{
-			name:  "Test for builk string",
-			query: "$5\r\nhello\r\n",
-			expected: []*datastruct.Object{
-				datastruct.NewObject(datastruct.ObjectTypeString, "hello"),
-			},
+			name:     "Test for builk string",
+			query:    "$5\r\nhello\r\n",
+			expected: []string{"hello"},
 		},
 		{
-			name:  "Test for builk string with CRLF",
-			query: "$7\r\nhello\r\n\r\n",
-			expected: []*datastruct.Object{
-				datastruct.NewObject(datastruct.ObjectTypeString, "hello\r\n"),
-			},
+			name:     "Test for builk string with CRLF",
+			query:    "$7\r\nhello\r\n\r\n",
+			expected: []string{"hello\r\n"},
 		},
 		{
 			name:     "Test for empty bulk string",
@@ -89,23 +81,17 @@ func TestProcessMultiBulkBuffer(t *testing.T) {
 	testCases := []struct {
 		name     string
 		query    string
-		expected []*datastruct.Object
+		expected []string
 	}{
 		{
-			name:  "Test for multi builk string",
-			query: "*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n",
-			expected: []*datastruct.Object{
-				datastruct.NewObject(datastruct.ObjectTypeString, "hello"),
-				datastruct.NewObject(datastruct.ObjectTypeString, "world"),
-			},
+			name:     "Test for multi builk string",
+			query:    "*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n",
+			expected: []string{"hello", "world"},
 		},
 		{
-			name:  "Test for multi builk string with CRLF",
-			query: "*2\r\n$7\r\nhello\r\n\r\n$7\r\nworld\r\n\r\n",
-			expected: []*datastruct.Object{
-				datastruct.NewObject(datastruct.ObjectTypeString, "hello\r\n"),
-				datastruct.NewObject(datastruct.ObjectTypeString, "world\r\n"),
-			},
+			name:     "Test for multi builk string with CRLF",
+			query:    "*2\r\n$7\r\nhello\r\n\r\n$7\r\nworld\r\n\r\n",
+			expected: []string{"hello\r\n", "world\r\n"},
 		},
 		{
 			name:     "Test for empty multi bulk string",

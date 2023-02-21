@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/IfanTsai/go-lib/utils/byteutils"
 	"github.com/IfanTsai/metis/ae"
 	"github.com/IfanTsai/metis/datastruct"
 	"github.com/IfanTsai/metis/socket"
@@ -27,7 +28,7 @@ type Client struct {
 	queryBuf     []byte
 	queryLen     int
 	cmdType      CommandType
-	args         []*datastruct.Object
+	args         []string
 	multiBulkLen int
 	bulkLen      int
 	replayHead   *list.List
@@ -48,7 +49,7 @@ func (c *Client) getCRLFIndexFromQueryBuffer() int {
 }
 
 func (c *Client) getNumFromQueryBuffer(indexCRLF int) (int, error) {
-	return strconv.Atoi(string(c.queryBuf[1:indexCRLF]))
+	return strconv.Atoi(byteutils.B2S(c.queryBuf[1:indexCRLF]))
 }
 
 func (c *Client) moveToNextLineInQueryBuffer(indexCRLF int) {

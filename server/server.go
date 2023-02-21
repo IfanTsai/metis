@@ -5,6 +5,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/IfanTsai/go-lib/utils/byteutils"
 	"github.com/IfanTsai/metis/ae"
 	"github.com/IfanTsai/metis/database"
 	"github.com/IfanTsai/metis/datastruct"
@@ -131,7 +132,7 @@ func sendReplayToClient(el *ae.EventLoop, fd socket.FD, clientData any) {
 	for client.replayHead.Len() > 0 {
 		element := client.replayHead.Front()
 		replayObject := element.Value.(*datastruct.Object)
-		buf := []byte(replayObject.Value.(string))
+		buf := byteutils.S2B(replayObject.Value.(string))
 		if client.sentLen < len(buf) {
 			nWritten, err := client.fd.Write(buf[client.sentLen:])
 			if err != nil {
@@ -172,7 +173,7 @@ func expireKeyCronJob(el *ae.EventLoop, id int64, clientData any) {
 			break
 		}
 
-		when, err := entry.Value.IntValue()
+		when, err := entry.Value.(*datastruct.Object).IntValue()
 		if err != nil {
 			log.Println("failed to get int value:", err)
 			continue

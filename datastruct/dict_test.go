@@ -1,34 +1,27 @@
 package datastruct_test
 
 import (
-	"fmt"
 	"hash/fnv"
 	"math"
+	"strconv"
 	"testing"
 
+	"github.com/IfanTsai/go-lib/utils/byteutils"
 	"github.com/IfanTsai/metis/datastruct"
 	"github.com/stretchr/testify/require"
 )
 
 type dictType struct{}
 
-func (d *dictType) Hash(a *datastruct.Object) int64 {
-	if a.Type != datastruct.ObjectTypeString {
-		return 0
-	}
-
+func (d *dictType) Hash(a any) int64 {
 	hash := fnv.New64a()
-	hash.Write([]byte(a.Value.(string)))
+	hash.Write(byteutils.S2B(a.(string)))
 
 	return int64(hash.Sum64())
 }
 
-func (d *dictType) Equal(a, b *datastruct.Object) bool {
-	if a.Type != datastruct.ObjectTypeString || b.Type != datastruct.ObjectTypeString {
-		return false
-	}
-
-	return a.Value.(string) == b.Value.(string)
+func (d *dictType) Equal(a, b any) bool {
+	return a == b
 }
 
 func BenchmarkDict_Set(b *testing.B) {
@@ -36,8 +29,8 @@ func BenchmarkDict_Set(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 1; i <= 10000; i++ {
-		key := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
-		val := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("value%d", i))
+		key := "key" + strconv.Itoa(i)
+		val := "val" + strconv.Itoa(i)
 		dict.Set(key, val)
 	}
 }
@@ -46,15 +39,15 @@ func BenchmarkDict_Get(b *testing.B) {
 	dict := datastruct.NewDict(&dictType{})
 
 	for i := 1; i <= 10000; i++ {
-		key := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
-		val := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("value%d", i))
+		key := "key" + strconv.Itoa(i)
+		val := "val" + strconv.Itoa(i)
 		dict.Set(key, val)
 	}
 
 	b.ResetTimer()
 
 	for i := 1; i <= 10000; i++ {
-		key := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
+		key := "key" + strconv.Itoa(i)
 		dict.Get(key)
 	}
 }
@@ -63,15 +56,15 @@ func BenchmarkDict_Delete(b *testing.B) {
 	dict := datastruct.NewDict(&dictType{})
 
 	for i := 1; i <= 10000; i++ {
-		key := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
-		val := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("value%d", i))
+		key := "key" + strconv.Itoa(i)
+		val := "val" + strconv.Itoa(i)
 		dict.Set(key, val)
 	}
 
 	b.ResetTimer()
 
 	for i := 1; i <= 10000; i++ {
-		key := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
+		key := "key" + strconv.Itoa(i)
 		dict.Delete(key)
 	}
 }
@@ -79,44 +72,44 @@ func BenchmarkDict_Delete(b *testing.B) {
 func TestDict_Find(t *testing.T) {
 	dict := datastruct.NewDict(&dictType{})
 
-	k1 := datastruct.NewObject(datastruct.ObjectTypeString, "foo")
-	v1 := datastruct.NewObject(datastruct.ObjectTypeString, "bar")
+	k1 := "foo"
+	v1 := "bar"
 
 	dict.Set(k1, v1)
 	entry := dict.Find(k1)
-	require.Equal(t, "bar", entry.Value.Value.(string))
+	require.Equal(t, "bar", entry.Value.(string))
 
-	k2 := datastruct.NewObject(datastruct.ObjectTypeString, "qux")
+	k2 := "qux"
 	entry = dict.Find(k2)
 	require.Nil(t, entry)
 
-	v2 := datastruct.NewObject(datastruct.ObjectTypeString, "baz")
+	v2 := "baz"
 	dict.Set(k1, v2)
 	entry = dict.Find(k1)
-	require.Equal(t, "baz", entry.Value.Value.(string))
+	require.Equal(t, "baz", entry.Value.(string))
 }
 
 func TestDict_SetGet(t *testing.T) {
 	dict := datastruct.NewDict(&dictType{})
 
 	for i := 1; i <= 1000; i++ {
-		key := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
-		val := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("value%d", i))
+		key := "key" + strconv.Itoa(i)
+		val := "val" + strconv.Itoa(i)
 		dict.Set(key, val)
 		require.Equal(t, int64(i), dict.Size())
 	}
 
 	for i := 1; i <= 1000; i++ {
-		key := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
-		val := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("value%d", i))
+		key := "key" + strconv.Itoa(i)
+		val := "val" + strconv.Itoa(i)
 		obj := dict.Get(key)
 		require.NotNil(t, obj)
-		require.Equal(t, val.Value.(string), obj.Value.(string))
+		require.Equal(t, val, obj.(string))
 	}
 
 	for i := 1001; i <= 2000; i++ {
-		k := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
-		require.Nil(t, dict.Get(k))
+		key := "key" + strconv.Itoa(i)
+		require.Nil(t, dict.Get(key))
 	}
 }
 
@@ -124,8 +117,8 @@ func TestDict_GetRandomKey(t *testing.T) {
 	dict := datastruct.NewDict(&dictType{})
 
 	for i := 1; i <= 1000000; i++ {
-		key := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
-		val := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("value%d", i))
+		key := "key" + strconv.Itoa(i)
+		val := "val" + strconv.Itoa(i)
 		dict.Set(key, val)
 	}
 
@@ -133,7 +126,7 @@ func TestDict_GetRandomKey(t *testing.T) {
 	for i := 1; i <= 100; i++ {
 		entry := dict.GetRandomKey()
 		require.NotNil(t, entry)
-		keys[entry.Key.StrValue()] = struct{}{}
+		keys[entry.Key.(string)] = struct{}{}
 	}
 
 	require.Equal(t, 100, len(keys))
@@ -142,13 +135,13 @@ func TestDict_GetRandomKey(t *testing.T) {
 func TestDict_Delete(t *testing.T) {
 	dict := datastruct.NewDict(&dictType{})
 
-	k1 := datastruct.NewObject(datastruct.ObjectTypeString, "foo")
-	v1 := datastruct.NewObject(datastruct.ObjectTypeString, "bar")
+	k1 := "foo"
+	v1 := "bar"
 
 	require.ErrorIs(t, dict.Delete(k1), datastruct.ErrNotInitialized)
 
 	dict.Set(k1, v1)
-	require.Equal(t, "bar", dict.Get(k1).Value.(string))
+	require.Equal(t, "bar", dict.Get(k1).(string))
 	require.NoError(t, dict.Delete(k1))
 
 	require.ErrorIs(t, dict.Delete(k1), datastruct.ErrKeyNotFound)
@@ -191,16 +184,16 @@ func TestDictIterator_Next(t *testing.T) {
 
 	expectTestCaseMap := make(map[string]string)
 	for i := 1; i <= 1000; i++ {
-		key := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("key%d", i))
-		val := datastruct.NewObject(datastruct.ObjectTypeString, fmt.Sprintf("value%d", i))
+		key := "key" + strconv.Itoa(i)
+		val := "val" + strconv.Itoa(i)
 		dict.Set(key, val)
-		expectTestCaseMap[key.StrValue()] = val.StrValue()
+		expectTestCaseMap[key] = val
 	}
 
 	iter := datastruct.NewDictIterator(dict)
 	for entry := iter.Next(); entry != nil; entry = iter.Next() {
-		require.Equal(t, expectTestCaseMap[entry.Key.StrValue()], entry.Value.StrValue())
-		delete(expectTestCaseMap, entry.Key.StrValue())
+		require.Equal(t, expectTestCaseMap[entry.Key.(string)], entry.Value.(string))
+		delete(expectTestCaseMap, entry.Key.(string))
 	}
 
 	require.Empty(t, expectTestCaseMap)

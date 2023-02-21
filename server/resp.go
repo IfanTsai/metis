@@ -3,7 +3,7 @@ package server
 import (
 	"strings"
 
-	"github.com/IfanTsai/metis/datastruct"
+	"github.com/IfanTsai/go-lib/utils/byteutils"
 	"github.com/pkg/errors"
 )
 
@@ -65,11 +65,9 @@ func processInlineBuffer(client *Client) (bool, error) {
 		return false, nil
 	}
 
-	subs := strings.Split(string(client.queryBuf[1:index]), " ")
-	client.args = make([]*datastruct.Object, len(subs))
-	for i, sub := range subs {
-		client.args[i] = datastruct.NewObject(datastruct.ObjectTypeString, sub)
-	}
+	subs := strings.Split(byteutils.B2S(client.queryBuf[1:index]), " ")
+	client.args = make([]string, len(subs))
+	copy(client.args, subs)
 
 	client.moveToNextLineInQueryBuffer(index)
 
@@ -105,7 +103,7 @@ func processBulkBuffer(client *Client) (bool, error) {
 		return false, nil
 	}
 
-	client.args = append(client.args, datastruct.NewObject(datastruct.ObjectTypeString, string(client.queryBuf[0:client.bulkLen])))
+	client.args = append(client.args, byteutils.B2S(client.queryBuf[0:client.bulkLen]))
 	client.moveToNextLineInQueryBuffer(client.bulkLen)
 
 	client.bulkLen = 0
@@ -136,7 +134,7 @@ func processMultiBulkBuffer(client *Client) (bool, error) {
 		}
 
 		client.multiBulkLen = num
-		client.args = make([]*datastruct.Object, num)
+		client.args = make([]string, num)
 	}
 
 	for client.multiBulkLen > 0 {
@@ -172,7 +170,7 @@ func processMultiBulkBuffer(client *Client) (bool, error) {
 			return false, errors.New("expected CRLF for end of bulk string")
 		}
 
-		client.args[len(client.args)-client.multiBulkLen] = datastruct.NewObject(datastruct.ObjectTypeString, string(client.queryBuf[:index]))
+		client.args[len(client.args)-client.multiBulkLen] = byteutils.B2S(client.queryBuf[:index])
 		client.bulkLen = 0
 		client.multiBulkLen--
 

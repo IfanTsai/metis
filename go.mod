@@ -3,6 +3,7 @@ module github.com/IfanTsai/metis
 go 1.20
 
 require (
+	github.com/IfanTsai/go-lib v0.0.0-20230204151456-1eed4d798616
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.15.0

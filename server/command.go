@@ -38,10 +38,10 @@ func keysCommand(client *Client) {
 	iter := datastruct.NewDictIterator(dict)
 	defer iter.Release()
 
-	pattern := client.args[1].StrValue()
+	pattern := client.args[1]
 	keys := make([]string, 0, dict.Size())
 	for entry := iter.Next(); entry != nil; entry = iter.Next() {
-		key := entry.Key.StrValue()
+		key := entry.Key.(string)
 		matched := false
 
 		if pattern == "*" {
@@ -57,7 +57,7 @@ func keysCommand(client *Client) {
 		}
 
 		if matched {
-			expired, err := expireIfNeeded(client.srv.db, entry.Key)
+			expired, err := expireIfNeeded(client.srv.db, entry.Key.(string))
 			if err != nil {
 				log.Println("expireIfNeeded error:", err)
 			}
@@ -90,7 +90,7 @@ func ttlCommand(client *Client) {
 		return
 	}
 
-	when, err := expireObj.Value.IntValue()
+	when, err := expireObj.Value.(*datastruct.Object).IntValue()
 	if err != nil {
 		client.addReplyStringf("-ERR expire value is not an intege, error: %v\r\n", err)
 
@@ -111,7 +111,7 @@ func randomGetCommand(client *Client) {
 			return
 		}
 
-		expired, err := expireIfNeeded(client.srv.db, entry.Key)
+		expired, err := expireIfNeeded(client.srv.db, entry.Key.(string))
 		if err != nil {
 			log.Println("expireIfNeeded error:", err)
 		}
@@ -127,15 +127,8 @@ func randomGetCommand(client *Client) {
 		return
 	}
 
-	switch {
-	case entry == nil:
-		client.addReplyString("$-1\r\n")
-	case entry.Key.Type != datastruct.ObjectTypeString:
-		client.addReplyString("-ERR key is not a string\r\n")
-	default:
-		keyStr := entry.Key.StrValue()
-		client.addReplyStringf("$%d\r\n%s\r\n", len(keyStr), keyStr)
-	}
+	keyStr := entry.Key.(string)
+	client.addReplyStringf("$%d\r\n%s\r\n", len(keyStr), keyStr)
 }
 
 func getCommand(client *Client) {
@@ -150,10 +143,10 @@ func getCommand(client *Client) {
 	switch {
 	case value == nil:
 		client.addReplyString("$-1\r\n")
-	case value.Type != datastruct.ObjectTypeString:
+	case value.(*datastruct.Object).Type != datastruct.ObjectTypeString:
 		client.addReplyString("-ERR value is not a string\r\n")
 	default:
-		valueStr := value.StrValue()
+		valueStr := value.(*datastruct.Object).StrValue()
 		client.addReplyStringf("$%d\r\n%s\r\n", len(valueStr), valueStr)
 	}
 }
@@ -161,12 +154,12 @@ func getCommand(client *Client) {
 func setCommand(client *Client) {
 	key, value := client.args[1], client.args[2]
 	client.srv.db.Expire.Delete(key)
-	client.srv.db.Dict.Set(key, value)
+	client.srv.db.Dict.Set(key, datastruct.NewObject(datastruct.ObjectTypeString, value))
 	client.addReplyString("+OK\r\n")
 }
 
 func expireCommand(client *Client) {
-	expireInt, err := client.args[2].IntValue()
+	expireInt, err := strconv.ParseInt(client.args[2], 10, 64)
 	if err != nil {
 		client.addReplyStringf("-ERR value is not an integer, error: %v\r\n", err)
 
@@ -184,10 +177,10 @@ func expireCommand(client *Client) {
 	client.addReplyString("+OK\r\n")
 }
 
-func expireIfNeeded(db *database.Databse, key *datastruct.Object) (bool, error) {
+func expireIfNeeded(db *database.Databse, key string) (bool, error) {
 	expireObj := db.Expire.Find(key)
 	if expireObj != nil {
-		when, err := expireObj.Value.IntValue()
+		when, err := expireObj.Value.(*datastruct.Object).IntValue()
 		if err != nil {
 			return false, errors.Wrap(err, "expire value is not an integer")
 		}
@@ -213,7 +206,7 @@ func lookupCommand(name string) *command {
 }
 
 func processCommand(client *Client) {
-	cmd := lookupCommand(strings.ToLower(client.args[0].StrValue()))
+	cmd := lookupCommand(strings.ToLower(client.args[0]))
 	switch {
 	case cmd == nil:
 		client.addReplyString("-ERR unknown command\r\n")
