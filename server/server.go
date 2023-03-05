@@ -8,7 +8,6 @@ import (
 	"github.com/IfanTsai/go-lib/utils/byteutils"
 	"github.com/IfanTsai/metis/ae"
 	"github.com/IfanTsai/metis/database"
-	"github.com/IfanTsai/metis/datastruct"
 	"github.com/IfanTsai/metis/socket"
 	"github.com/pkg/errors"
 )
@@ -131,8 +130,7 @@ func sendReplayToClient(el *ae.EventLoop, fd socket.FD, clientData any) {
 	client := clientData.(*Client)
 	for client.replayHead.Len() > 0 {
 		element := client.replayHead.Front()
-		replayObject := element.Value.(*datastruct.Object)
-		buf := byteutils.S2B(replayObject.Value.(string))
+		buf := byteutils.S2B(element.Value.(string))
 		if client.sentLen < len(buf) {
 			nWritten, err := client.fd.Write(buf[client.sentLen:])
 			if err != nil {
@@ -173,9 +171,9 @@ func expireKeyCronJob(el *ae.EventLoop, id int64, clientData any) {
 			break
 		}
 
-		when, err := entry.Value.(*datastruct.Object).IntValue()
-		if err != nil {
-			log.Println("failed to get int value:", err)
+		when, ok := entry.Value.(int64)
+		if !ok {
+			log.Printf("invalid expire value: %v, key: %v\n", entry.Value, entry.Key)
 			continue
 		}
 

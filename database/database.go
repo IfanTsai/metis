@@ -6,7 +6,7 @@ import (
 
 type Databse struct {
 	Dict   *datastruct.Dict
-	Expire *datastruct.Dict
+	Expire *datastruct.Dict // key: string, value: int64
 }
 
 func NewDatabase() *Databse {

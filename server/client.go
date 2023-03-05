@@ -32,7 +32,7 @@ type Client struct {
 	args         []string
 	multiBulkLen int
 	bulkLen      int
-	replayHead   *list.List
+	replayHead   *list.List // string
 	sentLen      int
 }
 
@@ -58,20 +58,20 @@ func (c *Client) moveToNextLineInQueryBuffer(indexCRLF int) {
 	c.queryLen -= indexCRLF + 2
 }
 
-func (c *Client) addReply(object *datastruct.Object) error {
+func (c *Client) addReply(str string) error {
 	if c.replayHead.Len() == 0 {
 		if err := c.srv.eventLoop.AddFileEvent(c.fd, ae.TypeFileEventWritable, sendReplayToClient, c); err != nil {
 			return errors.Wrap(err, "failed to add writable file event")
 		}
 	}
 
-	c.replayHead.PushBack(object)
+	c.replayHead.PushBack(str)
 
 	return nil
 }
 
 func (c *Client) addReplyString(str string) error {
-	return c.addReply(datastruct.NewObject(datastruct.ObjectTypeString, str))
+	return c.addReply(str)
 }
 
 func (c *Client) addReplyStringf(format string, args ...any) error {
