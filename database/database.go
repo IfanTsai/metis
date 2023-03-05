@@ -11,7 +11,7 @@ type Databse struct {
 
 func NewDatabase() *Databse {
 	return &Databse{
-		Dict:   datastruct.NewDict(&dictType{}),
-		Expire: datastruct.NewDict(&dictType{}),
+		Dict:   datastruct.NewDict(&DictType{}),
+		Expire: datastruct.NewDict(&DictType{}),
 	}
 }

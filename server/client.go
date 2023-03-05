@@ -5,6 +5,7 @@ import (
 	"container/list"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/IfanTsai/go-lib/utils/byteutils"
 	"github.com/IfanTsai/metis/ae"
@@ -75,6 +76,33 @@ func (c *Client) addReplyString(str string) error {
 
 func (c *Client) addReplyStringf(format string, args ...any) error {
 	return c.addReplyString(fmt.Sprintf(format, args...))
+}
+
+func (c *Client) addReplyZsetElements(elements []*datastruct.ZsetElement, withScoreIndex int) error {
+	withScore := false
+	if withScoreIndex > 0 && len(c.args) > withScoreIndex {
+		if strings.EqualFold(c.args[withScoreIndex], "WITHSCORES") {
+			withScore = true
+		} else {
+			c.addReplyString("-ERR invalid option: " + c.args[withScoreIndex] + "\r\n")
+			return nil
+		}
+	}
+	if withScore {
+		c.addReplyStringf("*%d\r\n", len(elements)*2)
+	} else {
+		c.addReplyStringf("*%d\r\n", len(elements))
+	}
+
+	for _, element := range elements {
+		c.addReplyStringf("$%d\r\n%s\r\n", len(element.Member), element.Member)
+		if withScore {
+			scoreStr := strconv.FormatFloat(element.Score, 'f', -1, 64)
+			c.addReplyStringf("$%d\r\n%s\r\n", len(scoreStr), scoreStr)
+		}
+	}
+
+	return nil
 }
 
 func (c *Client) free() {
