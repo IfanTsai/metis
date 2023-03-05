@@ -1,6 +1,8 @@
 package datastruct
 
-import "math"
+import (
+	"math"
+)
 
 type ZsetElement struct {
 	Member string

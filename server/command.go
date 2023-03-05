@@ -47,14 +47,14 @@ func zAddCommand(client *Client) {
 	dict := client.srv.db.Dict
 	value := dict.Get(key)
 	if value == nil {
-		zset := datastruct.NewZset(&database.DictType{})
-		value = datastruct.NewObject(datastruct.ObjectTypeZSet, zset)
+		value = datastruct.NewZset(&database.DictType{})
 		dict.Set(key, value)
 	}
 
-	zset, ok := value.(*datastruct.Object).Value.(*datastruct.Zset)
+	zset, ok := value.(*datastruct.Zset)
 	if !ok {
 		client.addReplyString("-ERR wrong type\r\n")
+		return
 	}
 
 	for i := 2; i < len(client.args); i += 2 {
@@ -80,9 +80,10 @@ func zCardCommand(client *Client) {
 		return
 	}
 
-	zset, ok := value.(*datastruct.Object).Value.(*datastruct.Zset)
+	zset, ok := value.(*datastruct.Zset)
 	if !ok {
 		client.addReplyString("-ERR wrong type\r\n")
+		return
 	}
 
 	client.addReplyStringf(":%d\r\n", zset.Size())
@@ -97,7 +98,7 @@ func zScoreCommand(client *Client) {
 		return
 	}
 
-	zset, ok := value.(*datastruct.Object).Value.(*datastruct.Zset)
+	zset, ok := value.(*datastruct.Zset)
 	if !ok {
 		client.addReplyString("-ERR wrong type\r\n")
 	}
@@ -122,7 +123,7 @@ func zCountCommand(client *Client) {
 		return
 	}
 
-	zset, ok := value.(*datastruct.Object).Value.(*datastruct.Zset)
+	zset, ok := value.(*datastruct.Zset)
 	if !ok {
 		client.addReplyString("-ERR wrong type\r\n")
 	}
@@ -164,7 +165,7 @@ func zRangeCommand(client *Client) {
 		client.addReplyString("$-1\r\n")
 	}
 
-	zset, ok := value.(*datastruct.Object).Value.(*datastruct.Zset)
+	zset, ok := value.(*datastruct.Zset)
 	if !ok {
 		client.addReplyString("-ERR wrong type\r\n")
 	}
@@ -195,7 +196,7 @@ func zRangeByScoreCommand(client *Client) {
 		return
 	}
 
-	zset, ok := value.(*datastruct.Object).Value.(*datastruct.Zset)
+	zset, ok := value.(*datastruct.Zset)
 	if !ok {
 		client.addReplyString("-ERR wrong type\r\n")
 	}
@@ -214,7 +215,7 @@ func zRemCommand(client *Client) {
 		return
 	}
 
-	zset, ok := value.(*datastruct.Object).Value.(*datastruct.Zset)
+	zset, ok := value.(*datastruct.Zset)
 	if !ok {
 		client.addReplyString("-ERR wrong type\r\n")
 	}
@@ -236,7 +237,7 @@ func zRemRangeByRankCommand(client *Client) {
 		return
 	}
 
-	zset, ok := value.(*datastruct.Object).Value.(*datastruct.Zset)
+	zset, ok := value.(*datastruct.Zset)
 	if !ok {
 		client.addReplyString("-ERR wrong type\r\n")
 	}
@@ -267,7 +268,7 @@ func zRemRangeByScoreCommand(client *Client) {
 		client.addReplyString("$-1\r\n")
 	}
 
-	zset, ok := value.(*datastruct.Object).Value.(*datastruct.Zset)
+	zset, ok := value.(*datastruct.Zset)
 	if !ok {
 		client.addReplyString("-ERR wrong type\r\n")
 	}
@@ -335,21 +336,18 @@ func ttlCommand(client *Client) {
 
 	if client.srv.db.Dict.Find(key) == nil {
 		client.addReplyString(":-2\r\n")
-
 		return
 	}
 
-	expireObj := client.srv.db.Expire.Find(key)
-	if expireObj == nil {
+	expireEntry := client.srv.db.Expire.Find(key)
+	if expireEntry == nil {
 		client.addReplyString(":-1\r\n")
-
 		return
 	}
 
-	when, err := expireObj.Value.(*datastruct.Object).IntValue()
-	if err != nil {
-		client.addReplyStringf("-ERR expire value is not an intege, error: %v\r\n", err)
-
+	when, ok := expireEntry.Value.(int64)
+	if !ok {
+		client.addReplyString("-ERR expire value is not an integer\r\n")
 		return
 	}
 
@@ -393,28 +391,34 @@ func getCommand(client *Client) {
 	// check if key expired
 	if _, err := expireIfNeeded(client.srv.db, key); err != nil {
 		client.addReplyStringf("-ERR %v\r\n", err)
+		return
 	}
 
 	value := client.srv.db.Dict.Get(key)
-	switch {
-	case value == nil:
+	if value == nil {
 		client.addReplyString("$-1\r\n")
-	case value.(*datastruct.Object).Type != datastruct.ObjectTypeString:
-		client.addReplyString("-ERR value is not a string\r\n")
-	default:
-		valueStr := value.(*datastruct.Object).StrValue()
-		client.addReplyStringf("$%d\r\n%s\r\n", len(valueStr), valueStr)
+		return
 	}
+
+	valueStr, ok := value.(string)
+	if !ok {
+		client.addReplyString("-ERR value is not a string\r\n")
+		return
+	}
+
+	client.addReplyStringf("$%d\r\n%s\r\n", len(valueStr), valueStr)
 }
 
 func setCommand(client *Client) {
 	key, value := client.args[1], client.args[2]
 	client.srv.db.Expire.Delete(key)
-	client.srv.db.Dict.Set(key, datastruct.NewObject(datastruct.ObjectTypeString, value))
+	client.srv.db.Dict.Set(key, value)
 	client.addReplyString("+OK\r\n")
 }
 
 func expireCommand(client *Client) {
+	key := client.args[1]
+
 	expireInt, err := strconv.ParseInt(client.args[2], 10, 64)
 	if err != nil {
 		client.addReplyStringf("-ERR value is not an integer, error: %v\r\n", err)
@@ -423,22 +427,16 @@ func expireCommand(client *Client) {
 	}
 
 	when := time.Now().UnixMilli() + expireInt*1000
-
-	expireObj := datastruct.NewObject(
-		datastruct.ObjectTypeString,
-		strconv.FormatInt(when, 10),
-	)
-
-	client.srv.db.Expire.Set(client.args[1], expireObj)
+	client.srv.db.Expire.Set(key, when)
 	client.addReplyString("+OK\r\n")
 }
 
 func expireIfNeeded(db *database.Databse, key string) (bool, error) {
 	expireObj := db.Expire.Find(key)
 	if expireObj != nil {
-		when, err := expireObj.Value.(*datastruct.Object).IntValue()
-		if err != nil {
-			return false, errors.Wrap(err, "expire value is not an integer")
+		when, ok := expireObj.Value.(int64)
+		if !ok {
+			return false, errors.New("expire value is not an integer")
 		}
 
 		if when < time.Now().UnixMilli() {
@@ -458,6 +456,7 @@ func lookupCommand(name string) *command {
 			return &cmd
 		}
 	}
+
 	return nil
 }
 
