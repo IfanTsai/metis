@@ -39,7 +39,7 @@ var commandTable = []command{
 }
 
 func pingCommand(client *Client) error {
-	return client.addReplyString("+PONG\r\n")
+	return client.addReplySimpleString("PONG")
 }
 
 func zAddCommand(client *Client) error {
@@ -53,20 +53,20 @@ func zAddCommand(client *Client) error {
 
 	zset, ok := value.(*datastruct.Zset)
 	if !ok {
-		return client.addReplyString("-ERR wrong type\r\n")
+		return client.addReplyError("wrong type")
 	}
 
 	for i := 2; i < len(client.args); i += 2 {
 		score, err := strconv.ParseFloat(client.args[i], 64)
 		if err != nil {
-			return client.addReplyStringf("-ERR invalid score: %s, error: %v\r\n", client.args[i], err)
+			return client.addReplyErrorf("invalid score: %s, error: %v", client.args[i], err)
 		}
 
 		member := client.args[i+1]
 		zset.Add(score, member)
 	}
 
-	return client.addReplyString("+OK\r\n")
+	return client.addReplyOK()
 }
 
 func zCardCommand(client *Client) error {
@@ -74,15 +74,15 @@ func zCardCommand(client *Client) error {
 	dict := client.srv.db.Dict
 	value := dict.Get(key)
 	if value == nil {
-		return client.addReplyString("$-1\r\n")
+		return client.addReplyNull()
 	}
 
 	zset, ok := value.(*datastruct.Zset)
 	if !ok {
-		return client.addReplyString("-ERR wrong type\r\n")
+		return client.addReplyError("wrong type")
 	}
 
-	return client.addReplyStringf(":%d\r\n", zset.Size())
+	return client.addReplyInt(zset.Size())
 }
 
 func zScoreCommand(client *Client) error {
@@ -90,23 +90,23 @@ func zScoreCommand(client *Client) error {
 	dict := client.srv.db.Dict
 	value := dict.Get(key)
 	if value == nil {
-		return client.addReplyString("$-1\r\n")
+		return client.addReplyNull()
 	}
 
 	zset, ok := value.(*datastruct.Zset)
 	if !ok {
-		return client.addReplyString("-ERR wrong type\r\n")
+		return client.addReplyError("wrong type")
 	}
 
 	member := client.args[2]
 	element := zset.Get(member)
 	if element == nil {
-		return client.addReplyString("$-1\r\n")
+		return client.addReplyNull()
 	}
 
 	scoreStr := strconv.FormatFloat(element.Score, 'f', -1, 64)
 
-	return client.addReplyStringf("+%s\r\n", scoreStr)
+	return client.addReplySimpleString(scoreStr)
 }
 
 func zCountCommand(client *Client) error {
@@ -114,27 +114,27 @@ func zCountCommand(client *Client) error {
 	dict := client.srv.db.Dict
 	value := dict.Get(key)
 	if value == nil {
-		return client.addReplyString("$-1\r\n")
+		return client.addReplyNull()
 	}
 
 	zset, ok := value.(*datastruct.Zset)
 	if !ok {
-		return client.addReplyString("-ERR wrong type\r\n")
+		return client.addReplyError("wrong type")
 	}
 
 	min, err := strconv.ParseFloat(client.args[2], 64)
 	if err != nil {
-		return client.addReplyStringf("-ERR invalid min: %s, error: %v\r\n", client.args[2], err)
+		return client.addReplyErrorf("invalid min: %s, error: %v", client.args[2], err)
 	}
 
 	max, err := strconv.ParseFloat(client.args[3], 64)
 	if err != nil {
-		return client.addReplyStringf("-ERR invalid max: %s, error: %v\r\n", client.args[3], err)
+		return client.addReplyErrorf("invalid max: %s, error: %v", client.args[3], err)
 	}
 
 	count := zset.Count(min, max)
 
-	return client.addReplyStringf(":%d\r\n", count)
+	return client.addReplyInt(count)
 }
 
 func zRangeCommand(client *Client) error {
@@ -142,23 +142,23 @@ func zRangeCommand(client *Client) error {
 
 	start, err := strconv.ParseInt(client.args[2], 10, 64)
 	if err != nil {
-		return client.addReplyStringf("-ERR invalid start: %s, error: %v\r\n", client.args[2], err)
+		return client.addReplyErrorf("invalid start: %s, error: %v", client.args[2], err)
 	}
 
 	stop, err := strconv.ParseInt(client.args[3], 10, 64)
 	if err != nil {
-		return client.addReplyStringf("-ERR invalid start: %s, error: %v\r\n", client.args[3], err)
+		return client.addReplyErrorf("invalid stop: %s, error: %v", client.args[3], err)
 	}
 
 	dict := client.srv.db.Dict
 	value := dict.Get(key)
 	if value == nil {
-		return client.addReplyString("$-1\r\n")
+		return client.addReplyNull()
 	}
 
 	zset, ok := value.(*datastruct.Zset)
 	if !ok {
-		return client.addReplyString("-ERR wrong type\r\n")
+		return client.addReplyError("wrong type")
 	}
 
 	elements := zset.RangeByRank(start, stop, false)
@@ -171,23 +171,23 @@ func zRangeByScoreCommand(client *Client) error {
 
 	min, err := strconv.ParseFloat(client.args[2], 64)
 	if err != nil {
-		return client.addReplyStringf("-ERR invalid start: %s, error: %v\r\n", client.args[2], err)
+		return client.addReplyErrorf("invalid start: %s, error: %v", client.args[2], err)
 	}
 
 	max, err := strconv.ParseFloat(client.args[3], 64)
 	if err != nil {
-		return client.addReplyStringf("-ERR invalid start: %s, error: %v\r\n", client.args[3], err)
+		return client.addReplyErrorf("invalid start: %s, error: %v", client.args[3], err)
 	}
 
 	dict := client.srv.db.Dict
 	value := dict.Get(key)
 	if value == nil {
-		return client.addReplyString("$-1\r\n")
+		return client.addReplyNull()
 	}
 
 	zset, ok := value.(*datastruct.Zset)
 	if !ok {
-		return client.addReplyString("-ERR wrong type\r\n")
+		return client.addReplyError("wrong type")
 	}
 
 	elements := zset.RangeByScore(min, max, -1, false)
@@ -201,19 +201,19 @@ func zRemCommand(client *Client) error {
 	dict := client.srv.db.Dict
 	value := dict.Get(key)
 	if value == nil {
-		return client.addReplyString("$-1\r\n")
+		return client.addReplyNull()
 	}
 
 	zset, ok := value.(*datastruct.Zset)
 	if !ok {
-		return client.addReplyString("-ERR wrong type\r\n")
+		return client.addReplyError("wrong type")
 	}
 
 	for i := 2; i < len(client.args); i++ {
 		zset.Delete(client.args[i])
 	}
 
-	return client.addReplyString("+OK\r\n")
+	return client.addReplyOK()
 }
 
 func zRemRangeByRankCommand(client *Client) error {
@@ -222,27 +222,27 @@ func zRemRangeByRankCommand(client *Client) error {
 	dict := client.srv.db.Dict
 	value := dict.Get(key)
 	if value == nil {
-		return client.addReplyString("$-1\r\n")
+		return client.addReplyNull()
 	}
 
 	zset, ok := value.(*datastruct.Zset)
 	if !ok {
-		return client.addReplyString("-ERR wrong type\r\n")
+		return client.addReplyError("wrong type")
 	}
 
 	start, err := strconv.ParseInt(client.args[2], 10, 64)
 	if err != nil {
-		return client.addReplyStringf("-ERR invalid start: %s, error: %v\r\n", client.args[2], err)
+		return client.addReplyErrorf("invalid start: %s, error: %v", client.args[2], err)
 	}
 
 	stop, err := strconv.ParseInt(client.args[3], 10, 64)
 	if err != nil {
-		return client.addReplyStringf("-ERR invalid start: %s, error: %v\r\n", client.args[3], err)
+		return client.addReplyErrorf("invalid start: %s, error: %v", client.args[3], err)
 	}
 
 	zset.DeleteRangeByRank(start, stop)
 
-	return client.addReplyString("+OK\r\n")
+	return client.addReplyOK()
 }
 
 func zRemRangeByScoreCommand(client *Client) error {
@@ -251,27 +251,27 @@ func zRemRangeByScoreCommand(client *Client) error {
 	dict := client.srv.db.Dict
 	value := dict.Get(key)
 	if value == nil {
-		return client.addReplyString("$-1\r\n")
+		return client.addReplyNull()
 	}
 
 	zset, ok := value.(*datastruct.Zset)
 	if !ok {
-		return client.addReplyString("-ERR wrong type\r\n")
+		return client.addReplyError("wrong type")
 	}
 
 	min, err := strconv.ParseFloat(client.args[2], 64)
 	if err != nil {
-		return client.addReplyStringf("-ERR invalid start: %s, error: %v\r\n", client.args[2], err)
+		return client.addReplyErrorf("invalid start: %s, error: %v", client.args[2], err)
 	}
 
 	max, err := strconv.ParseFloat(client.args[3], 64)
 	if err != nil {
-		return client.addReplyStringf("-ERR invalid start: %s, error: %v\r\n", client.args[3], err)
+		return client.addReplyErrorf("invalid start: %s, error: %v", client.args[3], err)
 	}
 
 	zset.DeleteRangeByScore(min, max)
 
-	return client.addReplyString("+OK\r\n")
+	return client.addReplyOK()
 }
 
 func keysCommand(client *Client) error {
@@ -290,7 +290,7 @@ func keysCommand(client *Client) error {
 		} else {
 			reg, err := regexp.Compile(pattern)
 			if err != nil {
-				return client.addReplyStringf("-ERR invalid pattern: %s, error: %v\r\n", pattern, err)
+				return client.addReplyErrorf("invalid pattern: %s, error: %v", pattern, err)
 			}
 
 			matched = reg.MatchString(key)
@@ -308,39 +308,29 @@ func keysCommand(client *Client) error {
 		}
 	}
 
-	if err := client.addReplyStringf("*%d\r\n", len(keys)); err != nil {
-		return err
-	}
-
-	for _, key := range keys {
-		if err := client.addReplyStringf("$%d\r\n%s\r\n", len(key), key); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return client.addReplyArrays(keys)
 }
 
 func ttlCommand(client *Client) error {
 	key := client.args[1]
 
 	if client.srv.db.Dict.Find(key) == nil {
-		return client.addReplyString(":-2\r\n")
+		return client.addReplyInt(-2)
 	}
 
 	expireEntry := client.srv.db.Expire.Find(key)
 	if expireEntry == nil {
-		return client.addReplyString(":-1\r\n")
+		return client.addReplyInt(-1)
 	}
 
 	when, ok := expireEntry.Value.(int64)
 	if !ok {
-		return client.addReplyString("-ERR expire value is not an integer\r\n")
+		return client.addReplyError("expire value is not an integer")
 	}
 
 	ttl := (when - time.Now().UnixMilli()) / 1000
 
-	return client.addReplyStringf(":%d\r\n", ttl)
+	return client.addReplyInt(ttl)
 }
 
 func randomGetCommand(client *Client) error {
@@ -348,7 +338,7 @@ func randomGetCommand(client *Client) error {
 	for {
 		entry = client.srv.db.Dict.GetRandomKey()
 		if entry == nil {
-			return client.addReplyString("$-1\r\n")
+			return client.addReplyNull()
 		}
 
 		expired, err := expireIfNeeded(client.srv.db, entry.Key.(string))
@@ -362,12 +352,12 @@ func randomGetCommand(client *Client) error {
 	}
 
 	if entry == nil {
-		return client.addReplyString("$-1\r\n")
+		return client.addReplyNull()
 	}
 
 	keyStr := entry.Key.(string)
 
-	return client.addReplyStringf("$%d\r\n%s\r\n", len(keyStr), keyStr)
+	return client.addReplyBulkString(keyStr)
 }
 
 func getCommand(client *Client) error {
@@ -375,20 +365,20 @@ func getCommand(client *Client) error {
 
 	// check if key expired
 	if _, err := expireIfNeeded(client.srv.db, key); err != nil {
-		return client.addReplyStringf("-ERR %v\r\n", err)
+		return client.addReplyErrorf("expireIfNeeded error: %v", err)
 	}
 
 	value := client.srv.db.Dict.Get(key)
 	if value == nil {
-		return client.addReplyString("$-1\r\n")
+		return client.addReplyNull()
 	}
 
 	valueStr, ok := value.(string)
 	if !ok {
-		return client.addReplyString("-ERR value is not a string\r\n")
+		return client.addReplyError("value is not a string")
 	}
 
-	return client.addReplyStringf("$%d\r\n%s\r\n", len(valueStr), valueStr)
+	return client.addReplyBulkString(valueStr)
 }
 
 func setCommand(client *Client) error {
@@ -396,7 +386,7 @@ func setCommand(client *Client) error {
 	_ = client.srv.db.Expire.Delete(key)
 	client.srv.db.Dict.Set(key, value)
 
-	return client.addReplyString("+OK\r\n")
+	return client.addReplyOK()
 }
 
 func expireCommand(client *Client) error {
@@ -404,13 +394,13 @@ func expireCommand(client *Client) error {
 
 	expireInt, err := strconv.ParseInt(client.args[2], 10, 64)
 	if err != nil {
-		return client.addReplyStringf("-ERR value is not an integer, error: %v\r\n", err)
+		return client.addReplyErrorf("invalid expire: %s, error: %v", client.args[2], err)
 	}
 
 	when := time.Now().UnixMilli() + expireInt*1000
 	client.srv.db.Expire.Set(key, when)
 
-	return client.addReplyString("+OK\r\n")
+	return client.addReplyOK()
 }
 
 func expireIfNeeded(db *database.Databse, key string) (bool, error) {
@@ -448,9 +438,9 @@ func processCommand(client *Client) error {
 	cmd := lookupCommand(strings.ToLower(client.args[0]))
 	switch {
 	case cmd == nil:
-		err = client.addReplyString("-ERR unknown command\r\n")
+		err = client.addReplyError("unknown command")
 	case (cmd.arity > 0 && len(client.args) != cmd.arity) || (len(client.args) < -cmd.arity):
-		err = client.addReplyString("-ERR wrong number of arguments\r\n")
+		err = client.addReplyError("wrong number of arguments")
 	default:
 		err = cmd.proc(client)
 	}
