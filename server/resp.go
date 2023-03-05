@@ -43,7 +43,9 @@ func processInputBuffer(client *Client) error {
 
 		if ok {
 			if len(client.args) > 0 {
-				processCommand(client)
+				if err := processCommand(client); err != nil {
+					return err
+				}
 			} else {
 				client.reset()
 			}
