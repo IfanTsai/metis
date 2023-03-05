@@ -78,27 +78,79 @@ func (c *Client) addReplyStringf(format string, args ...any) error {
 	return c.addReplyString(fmt.Sprintf(format, args...))
 }
 
+func (c *Client) addReplySimpleString(str string) error {
+	return c.addReplyStringf("+%s\r\n", str)
+}
+
+func (c *Client) addReplyBulkString(str string) error {
+	return c.addReplyStringf("$%d\r\n%s\r\n", len(str), str)
+}
+
+func (c *Client) addReplyInt(num int64) error {
+	return c.addReplyStringf(":%d\r\n", num)
+}
+
+func (c *Client) addReplyError(err string) error {
+	return c.addReplyStringf("-ERR %s\r\n", err)
+}
+
+func (c *Client) addReplyErrorf(format string, args ...any) error {
+	return c.addReplyError(fmt.Sprintf(format, args...))
+}
+
+func (c *Client) addReplyOK() error {
+	return c.addReplyString("+OK\r\n")
+}
+
+func (c *Client) addReplyNull() error {
+	return c.addReplyString("$-1\r\n")
+}
+
+func (c *Client) addReplyArrays(strs []string) error {
+	if err := c.addReplyStringf("*%d\r\n", len(strs)); err != nil {
+		return err
+	}
+
+	for _, str := range strs {
+		if err := c.addReplyBulkString(str); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *Client) addReplyZsetElements(elements []*datastruct.ZsetElement, withScoreIndex int) error {
 	withScore := false
 	if withScoreIndex > 0 && len(c.args) > withScoreIndex {
 		if strings.EqualFold(c.args[withScoreIndex], "WITHSCORES") {
 			withScore = true
 		} else {
-			c.addReplyString("-ERR invalid option: " + c.args[withScoreIndex] + "\r\n")
-			return nil
+			return c.addReplyError("invalid option: %s" + c.args[withScoreIndex])
 		}
 	}
+
+	var respArrayLen int
 	if withScore {
-		c.addReplyStringf("*%d\r\n", len(elements)*2)
+		respArrayLen = len(elements) * 2
 	} else {
-		c.addReplyStringf("*%d\r\n", len(elements))
+		respArrayLen = len(elements)
+	}
+
+	if err := c.addReplyStringf("*%d\r\n", respArrayLen); err != nil {
+		return err
 	}
 
 	for _, element := range elements {
-		c.addReplyStringf("$%d\r\n%s\r\n", len(element.Member), element.Member)
+		if err := c.addReplyBulkString(element.Member); err != nil {
+			return err
+		}
+
 		if withScore {
 			scoreStr := strconv.FormatFloat(element.Score, 'f', -1, 64)
-			c.addReplyStringf("$%d\r\n%s\r\n", len(scoreStr), scoreStr)
+			if err := c.addReplyBulkString(scoreStr); err != nil {
+				return err
+			}
 		}
 	}
 
