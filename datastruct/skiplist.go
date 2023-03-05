@@ -125,6 +125,66 @@ func (s *Skiplist) Delete(score float64, member string) *SkiplistNode {
 	return x
 }
 
+// DeleteRangeByScore deletes all the elements with score between min and max (inclusive).
+func (s *Skiplist) DeleteRangeByScore(min, max float64) []*SkiplistNode {
+	update := make([]*SkiplistNode, maxLevel)
+	x := s.Head
+
+	for i := s.Level - 1; i >= 0; i-- {
+		for x.Levels[i].Forward != nil && x.Levels[i].Forward.Score < min {
+			x = x.Levels[i].Forward
+		}
+
+		update[i] = x
+	}
+
+	x = x.Levels[0].Forward
+
+	var deleted []*SkiplistNode
+	for x != nil && x.Score <= max {
+		next := x.Levels[0].Forward
+		s.deleteNode(x, update)
+		deleted = append(deleted, x)
+		x = next
+	}
+
+	return deleted
+}
+
+// DeleteRangeByRank deletes all the elements with rank between start and end.
+// Note that rank is 1-based because of the HEAD element.
+func (s *Skiplist) DeleteRangeByRank(start, end int64) []*SkiplistNode {
+	if start < 1 || end < 1 || start > end {
+		return nil
+	}
+
+	update := make([]*SkiplistNode, maxLevel)
+	x := s.Head
+
+	for i := s.Level - 1; i >= 0; i-- {
+		rank := int64(0)
+		for x.Levels[i].Forward != nil && (rank+x.Levels[i].Span) < start {
+			rank += x.Levels[i].Span
+			x = x.Levels[i].Forward
+		}
+
+		update[i] = x
+	}
+
+	x = x.Levels[0].Forward
+
+	var deleted []*SkiplistNode
+	for x != nil && start <= end {
+		next := x.Levels[0].Forward
+		s.deleteNode(x, update)
+		deleted = append(deleted, x)
+		x = next
+		start++
+	}
+
+	return deleted
+}
+
 // GetRank returns the rank of the element with the same score in the skiplist.
 // Returns 0 if the element is not found, rand otherwise.
 // Note that the rank is 1-based due to the span of s.Head to the first element.
@@ -165,6 +225,135 @@ func (s *Skiplist) GetElementByRank(rank int64) *SkiplistNode {
 	}
 
 	return nil
+}
+
+// RangeByRank returns a slice of elements with rank between start and end.
+// Note that rank is 1-based because of the HEAD element.
+func (s *Skiplist) RangeByRank(start, end int64, reverse bool) []*SkiplistNode {
+	if start < 1 || end < 1 || start > end {
+		return nil
+	}
+
+	var node *SkiplistNode
+	if reverse {
+		node = s.Tail
+		if start > 0 {
+			node = s.GetElementByRank(s.Length - start + 1)
+		}
+	} else {
+		node = s.Head.Levels[0].Forward
+		if start > 0 {
+			node = s.GetElementByRank(start)
+		}
+	}
+
+	rangeLen := end - start + 1
+	elements := make([]*SkiplistNode, 0, rangeLen)
+	for i := int64(0); i < rangeLen && node != nil; i++ {
+		elements = append(elements, node)
+
+		if reverse {
+			node = node.Backward
+		} else {
+			node = node.Levels[0].Forward
+		}
+	}
+
+	return elements
+}
+
+// RangeByScore returns a slice of elements with score between min and max.
+func (s *Skiplist) RangeByScore(min, max float64, limit int64, reverse bool) []*SkiplistNode {
+	var node *SkiplistNode
+	if reverse {
+		node = s.GetLastInScoreRange(min, max)
+	} else {
+		node = s.GetFirstInScoreRange(min, max)
+	}
+
+	var elements []*SkiplistNode
+	for i := int64(0); (limit < 0 || i < limit) && node != nil; i++ {
+		elements = append(elements, node)
+
+		if reverse {
+			node = node.Backward
+		} else {
+			node = node.Levels[0].Forward
+		}
+
+		if node != nil && (node.Score < min || node.Score > max) {
+			break
+		}
+	}
+
+	return elements
+}
+
+// Count returns the number of elements with score between min and max.
+func (s *Skiplist) Count(min, max float64) int64 {
+	var count int64
+	x := s.GetFirstInScoreRange(min, max)
+	for x != nil && x.Score <= max {
+		count++
+		x = x.Levels[0].Forward
+	}
+
+	return count
+}
+
+// GetFirstInScoreRange returns the first element with score between min and max.
+func (s *Skiplist) GetFirstInScoreRange(min, max float64) *SkiplistNode {
+	if !s.HasInScoreRange(min, max) {
+		return nil
+	}
+
+	x := s.Head
+	for i := s.Level - 1; i >= 0; i-- {
+		for x.Levels[i].Forward != nil && x.Levels[i].Forward.Score < min {
+			x = x.Levels[i].Forward
+		}
+	}
+
+	x = x.Levels[0].Forward
+	if x != nil && x.Score <= max {
+		return x
+	}
+
+	return nil
+}
+
+// GetLastInScoreRange returns the last element with score between min and max.
+func (s *Skiplist) GetLastInScoreRange(min, max float64) *SkiplistNode {
+	if !s.HasInScoreRange(min, max) {
+		return nil
+	}
+
+	x := s.Head
+	for i := s.Level - 1; i >= 0; i-- {
+		for x.Levels[i].Forward != nil && x.Levels[i].Forward.Score <= max {
+			x = x.Levels[i].Forward
+		}
+	}
+
+	if x != nil && x.Score >= min {
+		return x
+	}
+
+	return nil
+}
+
+func (s *Skiplist) HasInScoreRange(min, max float64) bool {
+	node := s.Head.Levels[0].Forward
+	if node == nil || node.Score > max {
+		return false
+	}
+
+	node = s.Tail
+	if node == nil || node.Score < min {
+		return false
+	}
+
+	return true
 }
 
 func (s *Skiplist) deleteNode(x *SkiplistNode, update []*SkiplistNode) {
