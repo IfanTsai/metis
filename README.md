@@ -2,6 +2,34 @@
 
 A simple Redis server clone written in Golang.
 
+### Command
+
+You can use redis-cli to connect to metis. Supported commands are listed below.
+
+- PING
+- SET
+- GET
+- KEYS
+- EXPIRE
+- TTL
+- RANDOMKEY
+- ZADD
+- ZRANGE
+- ZRANGEBYSCORE
+- ZREM
+- ZREMBYRANK
+- ZREMBYSCORE
+- ZCARD
+- ZCOUNT
+- ZSCORE
+- LPUSH
+- RPUSH
+- LPOP
+- RPOP
+- LLEN
+- LINDEX
+- LRANGE
+
 ### Run
 
 ```bash
