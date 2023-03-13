@@ -157,6 +157,20 @@ func (c *Client) addReplyZsetElements(elements []*datastruct.ZsetElement, withSc
 	return nil
 }
 
+func (c *Client) addReplySet(set *datastruct.Set) error {
+	if err := c.addReplyStringf("*%d\r\n", set.Size()); err != nil {
+		return err
+	}
+
+	for _, member := range set.Range() {
+		if err := c.addReplyBulkString(member.(string)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *Client) free() {
 	if c.srv != nil {
 		delete(c.srv.clients, c.fd)
