@@ -13,6 +13,15 @@ You can use redis-cli to connect to metis. Supported commands are listed below.
 - EXPIRE
 - TTL
 - RANDOMKEY
+- SADD
+- SREM
+- SPOP
+- SCARD
+- SISMEMBER
+- SMEMBERS
+- SDIFF
+- SINTER
+- SUNION
 - ZADD
 - ZRANGE
 - ZRANGEBYSCORE

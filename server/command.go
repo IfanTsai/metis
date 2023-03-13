@@ -25,6 +25,16 @@ var commandTable = []command{
 	{"set", setCommand, -3},
 	{"get", getCommand, 2},
 	{"randomget", randomGetCommand, 1},
+	// set
+	{"sadd", sAddCommand, -3},
+	{"srem", sRemCommand, -3},
+	{"spop", sPopCommand, 2},
+	{"scard", sCardCommand, 2},
+	{"sismember", sIsMemberCommand, 3},
+	{"smembers", sMembersCommand, 2},
+	{"sdiff", sDiffCommand, -3},
+	{"sinter", sInterCommand, -3},
+	{"sunion", sUnionCommand, -3},
 	// zset
 	{"zadd", zAddCommand, -4},
 	{"zrange", zRangeCommand, -4},
