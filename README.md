@@ -13,6 +13,16 @@ You can use redis-cli to connect to metis. Supported commands are listed below.
 - EXPIRE
 - TTL
 - RANDOMKEY
+- HSET
+- HGET
+- HDEL
+- LPUSH
+- RPUSH
+- LPOP
+- RPOP
+- LLEN
+- LINDEX
+- LRANGE
 - SADD
 - SREM
 - SPOP
@@ -31,13 +41,6 @@ You can use redis-cli to connect to metis. Supported commands are listed below.
 - ZCARD
 - ZCOUNT
 - ZSCORE
-- LPUSH
-- RPUSH
-- LPOP
-- RPOP
-- LLEN
-- LINDEX
-- LRANGE
 
 ### Run
 
