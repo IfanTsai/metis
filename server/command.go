@@ -15,7 +15,7 @@ type command struct {
 }
 
 var commandTable = []command{
-	// other
+	// connection
 	{"ping", pingCommand, 1},
 	// key
 	{"expire", expireCommand, 3},
@@ -25,6 +25,22 @@ var commandTable = []command{
 	{"set", setCommand, -3},
 	{"get", getCommand, 2},
 	{"randomget", randomGetCommand, 1},
+	// hash
+	{"hset", hSetCommand, 4},
+	{"hget", hGetCommand, 3},
+	{"hdel", hDelCommand, -3},
+	{"hexists", hExistsCommand, 3},
+	{"hkeys", hKeysCommand, 2},
+	{"hlen", hLenCommand, 2},
+
+	// list
+	{"lpush", lPushCommand, -3},
+	{"rpush", rPushCommand, -3},
+	{"lpop", lPopCommand, 2},
+	{"rpop", rPopCommand, 2},
+	{"llen", lLenCommand, 2},
+	{"lindex", lIndexCommand, 3},
+	{"lrange", lRangeCommand, -4},
 	// set
 	{"sadd", sAddCommand, -3},
 	{"srem", sRemCommand, -3},
@@ -45,14 +61,6 @@ var commandTable = []command{
 	{"zcard", zCardCommand, 2},
 	{"zcount", zCountCommand, 4},
 	{"zscore", zScoreCommand, 3},
-	// list
-	{"lpush", lPushCommand, -3},
-	{"rpush", rPushCommand, -3},
-	{"lpop", lPopCommand, 2},
-	{"rpop", rPopCommand, 2},
-	{"llen", lLenCommand, 2},
-	{"lindex", lIndexCommand, 3},
-	{"lrange", lRangeCommand, -4},
 	// TODO: implement more commands
 }
 
