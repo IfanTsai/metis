@@ -14,8 +14,9 @@ var (
 )
 
 type Config struct {
-	Host string `mapstructure:"host"`
-	Port uint16 `mapstructure:"port"`
+	Host        string `mapstructure:"bind"`
+	Port        uint16 `mapstructure:"port"`
+	DatabaseNum int    `mapstructure:"databases"`
 }
 
 func LoadConfig(configPath, configType string) *Config {

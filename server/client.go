@@ -9,6 +9,7 @@ import (
 
 	"github.com/IfanTsai/go-lib/utils/byteutils"
 	"github.com/IfanTsai/metis/ae"
+	"github.com/IfanTsai/metis/database"
 	"github.com/IfanTsai/metis/datastruct"
 	"github.com/IfanTsai/metis/socket"
 	"github.com/pkg/errors"
@@ -25,6 +26,7 @@ const (
 
 type Client struct {
 	srv          *Server
+	db           *database.Databse
 	fd           socket.FD
 	queryBuf     []byte
 	queryLen     int
@@ -39,6 +41,7 @@ type Client struct {
 func NewClient(srv *Server, fd socket.FD) *Client {
 	return &Client{
 		srv:        srv,
+		db:         srv.dbs[0],
 		fd:         fd,
 		queryBuf:   make([]byte, maxBulk),
 		replayHead: list.New(),

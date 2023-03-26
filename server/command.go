@@ -17,6 +17,7 @@ type command struct {
 var commandTable = []command{
 	// connection
 	{"ping", pingCommand, 1},
+	{"select", selectCommand, 2},
 	// key
 	{"expire", expireCommand, 3},
 	{"ttl", ttlCommand, 2},

@@ -9,7 +9,7 @@ import (
 
 func zAddCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		value = datastruct.NewZset(&database.DictType{})
@@ -36,7 +36,7 @@ func zAddCommand(client *Client) error {
 
 func zCardCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
@@ -52,7 +52,7 @@ func zCardCommand(client *Client) error {
 
 func zScoreCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
@@ -76,7 +76,7 @@ func zScoreCommand(client *Client) error {
 
 func zCountCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
@@ -115,7 +115,7 @@ func zRangeCommand(client *Client) error {
 		return client.addReplyErrorf("invalid stop: %s, error: %v", client.args[3], err)
 	}
 
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
@@ -144,7 +144,7 @@ func zRangeByScoreCommand(client *Client) error {
 		return client.addReplyErrorf("invalid start: %s, error: %v", client.args[3], err)
 	}
 
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
@@ -163,7 +163,7 @@ func zRangeByScoreCommand(client *Client) error {
 func zRemCommand(client *Client) error {
 	key := client.args[1]
 
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
@@ -184,7 +184,7 @@ func zRemCommand(client *Client) error {
 func zRemRangeByRankCommand(client *Client) error {
 	key := client.args[1]
 
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
@@ -213,7 +213,7 @@ func zRemRangeByRankCommand(client *Client) error {
 func zRemRangeByScoreCommand(client *Client) error {
 	key := client.args[1]
 
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
