@@ -8,7 +8,7 @@ import (
 
 func lPushCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		value = datastruct.NewQuicklist()
@@ -29,7 +29,7 @@ func lPushCommand(client *Client) error {
 
 func rPushCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		value = datastruct.NewQuicklist()
@@ -50,7 +50,7 @@ func rPushCommand(client *Client) error {
 
 func lPopCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
@@ -70,7 +70,7 @@ func lPopCommand(client *Client) error {
 
 func rPopCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
@@ -90,7 +90,7 @@ func rPopCommand(client *Client) error {
 
 func lLenCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyInt(0)
@@ -106,7 +106,7 @@ func lLenCommand(client *Client) error {
 
 func lIndexCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
@@ -132,7 +132,7 @@ func lIndexCommand(client *Client) error {
 
 func lRangeCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()

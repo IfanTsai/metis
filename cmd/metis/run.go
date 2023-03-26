@@ -12,10 +12,10 @@ import (
 
 func main() {
 	config := configure.LoadConfig("./", "toml")
-	metisServer := server.NewServer()
+	metisServer := server.NewServer(config)
 
 	go func() {
-		if err := metisServer.Run(config.Host, config.Port); err != nil {
+		if err := metisServer.Run(); err != nil {
 			log.Panicln("metis server run error: ", err)
 		}
 	}()

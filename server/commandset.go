@@ -8,7 +8,7 @@ import (
 
 func sAddCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		value = datastruct.NewSet(&database.DictType{})
@@ -29,7 +29,7 @@ func sAddCommand(client *Client) error {
 
 func sRemCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyInt(0)
@@ -52,7 +52,7 @@ func sRemCommand(client *Client) error {
 
 func sPopCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyInt(0)
@@ -77,7 +77,7 @@ func sPopCommand(client *Client) error {
 
 func sCardCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyInt(0)
@@ -93,7 +93,7 @@ func sCardCommand(client *Client) error {
 
 func sIsMemberCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyInt(0)
@@ -113,7 +113,7 @@ func sIsMemberCommand(client *Client) error {
 
 func sMembersCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return client.addReplyInt(0)
@@ -128,7 +128,7 @@ func sMembersCommand(client *Client) error {
 }
 
 func sDiffCommand(client *Client) error {
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 
 	value := dict.Get(client.args[1])
 	if value == nil {
@@ -158,7 +158,7 @@ func sDiffCommand(client *Client) error {
 }
 
 func sInterCommand(client *Client) error {
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 
 	value := dict.Get(client.args[1])
 	if value == nil {
@@ -189,7 +189,7 @@ func sInterCommand(client *Client) error {
 }
 
 func sUnionCommand(client *Client) error {
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 
 	value := dict.Get(client.args[1])
 	if value == nil {

@@ -7,33 +7,50 @@ import (
 
 	"github.com/IfanTsai/go-lib/utils/byteutils"
 	"github.com/IfanTsai/metis/ae"
+	"github.com/IfanTsai/metis/configure"
 	"github.com/IfanTsai/metis/database"
 	"github.com/IfanTsai/metis/socket"
 	"github.com/pkg/errors"
 )
 
 const (
+	defaultDBNum          = 16
 	maxBulk               = 1024 * 4
 	checkExpireEntryCount = 100
 	checkExpireInterval   = 100
 )
 
 type Server struct {
+	host      string
+	port      uint16
 	fd        socket.FD
 	clients   map[socket.FD]*Client
 	eventLoop *ae.EventLoop
-	db        *database.Databse
+	dbs       []*database.Databse
 }
 
-func NewServer() *Server {
-	return &Server{
-		clients: make(map[socket.FD]*Client),
-		db:      database.NewDatabase(),
+func NewServer(config *configure.Config) *Server {
+	dbNum := defaultDBNum
+	if config.DatabaseNum > 0 {
+		dbNum = config.DatabaseNum
 	}
+
+	server := &Server{
+		host:    config.Host,
+		port:    config.Port,
+		clients: make(map[socket.FD]*Client),
+	}
+
+	server.dbs = make([]*database.Databse, dbNum)
+	for i := 0; i < dbNum; i++ {
+		server.dbs[i] = database.NewDatabase()
+	}
+
+	return server
 }
 
-func (s *Server) Run(ip string, port uint16) error {
-	listenFd, err := CreateTCPServer(ip, port)
+func (s *Server) Run() error {
+	listenFd, err := CreateTCPServer(s.host, s.port)
 	if err != nil {
 		log.Fatalf("failed to create tcp server: %+v", err)
 	}
@@ -165,21 +182,23 @@ func sendReplayToClient(el *ae.EventLoop, fd socket.FD, clientData any) {
 
 func expireKeyCronJob(el *ae.EventLoop, id int64, clientData any) {
 	srv := clientData.(*Server)
-	for i := 0; i < checkExpireEntryCount; i++ {
-		entry := srv.db.Expire.GetRandomKey()
-		if entry == nil {
-			break
-		}
+	for _, db := range srv.dbs {
+		for i := 0; i < checkExpireEntryCount; i++ {
+			entry := db.Expire.GetRandomKey()
+			if entry == nil {
+				break
+			}
 
-		when, ok := entry.Value.(int64)
-		if !ok {
-			log.Printf("invalid expire value: %v, key: %v\n", entry.Value, entry.Key)
-			continue
-		}
+			when, ok := entry.Value.(int64)
+			if !ok {
+				log.Printf("invalid expire value: %v, key: %v\n", entry.Value, entry.Key)
+				continue
+			}
 
-		if when < time.Now().UnixMilli() {
-			srv.db.Dict.Delete(entry.Key)
-			srv.db.Expire.Delete(entry.Key)
+			if when < time.Now().UnixMilli() {
+				db.Dict.Delete(entry.Key)
+				db.Expire.Delete(entry.Key)
+			}
 		}
 	}
 }

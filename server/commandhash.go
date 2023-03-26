@@ -98,7 +98,7 @@ func hLenCommand(client *Client) error {
 }
 
 func getHash(client *Client, key string) (*datastruct.Dict, error) {
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		value = datastruct.NewDict(&database.DictType{})
@@ -114,7 +114,7 @@ func getHash(client *Client, key string) (*datastruct.Dict, error) {
 }
 
 func getHashIfExist(client *Client, key string) (*datastruct.Dict, error) {
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
 		return nil, client.addReplyInt(0)

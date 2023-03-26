@@ -8,8 +8,8 @@ import (
 
 func setCommand(client *Client) error {
 	key, value := client.args[1], client.args[2]
-	_ = client.srv.db.Expire.Delete(key)
-	client.srv.db.Dict.Set(key, value)
+	_ = client.db.Expire.Delete(key)
+	client.db.Dict.Set(key, value)
 
 	return client.addReplyOK()
 }
@@ -18,11 +18,11 @@ func getCommand(client *Client) error {
 	key := client.args[1]
 
 	// check if key expired
-	if _, err := expireIfNeeded(client.srv.db, key); err != nil {
+	if _, err := expireIfNeeded(client.db, key); err != nil {
 		return client.addReplyErrorf("expireIfNeeded error: %v", err)
 	}
 
-	value := client.srv.db.Dict.Get(key)
+	value := client.db.Dict.Get(key)
 	if value == nil {
 		return client.addReplyNull()
 	}
@@ -38,12 +38,12 @@ func getCommand(client *Client) error {
 func randomGetCommand(client *Client) error {
 	var entry *datastruct.DictEntry
 	for {
-		entry = client.srv.db.Dict.GetRandomKey()
+		entry = client.db.Dict.GetRandomKey()
 		if entry == nil {
 			return client.addReplyNull()
 		}
 
-		expired, err := expireIfNeeded(client.srv.db, entry.Key.(string))
+		expired, err := expireIfNeeded(client.db, entry.Key.(string))
 		if err != nil {
 			log.Println("expireIfNeeded error:", err)
 		}

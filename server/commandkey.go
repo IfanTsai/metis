@@ -18,7 +18,7 @@ func expireCommand(client *Client) error {
 	}
 
 	when := time.Now().UnixMilli() + expireInt*1000
-	client.srv.db.Expire.Set(key, when)
+	client.db.Expire.Set(key, when)
 
 	return client.addReplyOK()
 }
@@ -26,11 +26,11 @@ func expireCommand(client *Client) error {
 func ttlCommand(client *Client) error {
 	key := client.args[1]
 
-	if client.srv.db.Dict.Find(key) == nil {
+	if client.db.Dict.Find(key) == nil {
 		return client.addReplyInt(-2)
 	}
 
-	expireEntry := client.srv.db.Expire.Find(key)
+	expireEntry := client.db.Expire.Find(key)
 	if expireEntry == nil {
 		return client.addReplyInt(-1)
 	}
@@ -46,7 +46,7 @@ func ttlCommand(client *Client) error {
 }
 
 func keysCommand(client *Client) error {
-	dict := client.srv.db.Dict
+	dict := client.db.Dict
 	iter := datastruct.NewDictIterator(dict)
 	defer iter.Release()
 
@@ -68,7 +68,7 @@ func keysCommand(client *Client) error {
 		}
 
 		if matched {
-			expired, err := expireIfNeeded(client.srv.db, entry.Key.(string))
+			expired, err := expireIfNeeded(client.db, entry.Key.(string))
 			if err != nil {
 				log.Println("expireIfNeeded error:", err)
 			}

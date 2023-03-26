@@ -7,6 +7,7 @@ A simple Redis server clone written in Golang.
 You can use redis-cli to connect to metis. Supported commands are listed below.
 
 - PING
+- SELECT
 - SET
 - GET
 - KEYS
