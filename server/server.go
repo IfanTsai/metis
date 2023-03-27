@@ -7,7 +7,7 @@ import (
 
 	"github.com/IfanTsai/go-lib/utils/byteutils"
 	"github.com/IfanTsai/metis/ae"
-	"github.com/IfanTsai/metis/configure"
+	"github.com/IfanTsai/metis/config"
 	"github.com/IfanTsai/metis/database"
 	"github.com/IfanTsai/metis/socket"
 	"github.com/pkg/errors"
@@ -29,7 +29,7 @@ type Server struct {
 	dbs       []*database.Databse
 }
 
-func NewServer(config *configure.Config) *Server {
+func NewServer(config *config.Config) *Server {
 	dbNum := defaultDBNum
 	if config.DatabaseNum > 0 {
 		dbNum = config.DatabaseNum
