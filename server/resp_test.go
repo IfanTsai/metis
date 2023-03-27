@@ -3,7 +3,7 @@ package server
 import (
 	"testing"
 
-	"github.com/IfanTsai/metis/configure"
+	"github.com/IfanTsai/metis/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,7 +30,7 @@ func TestProcessInlineBuffer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			client := NewClient(NewServer(&configure.Config{}), 0)
+			client := NewClient(NewServer(&config.Config{}), 0)
 			readQuery(client, tc.query)
 			ok, err := processInlineBuffer(client)
 			require.NoError(t, err)
@@ -68,7 +68,7 @@ func TestProcessBulkBuffer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			client := NewClient(NewServer(&configure.Config{}), 0)
+			client := NewClient(NewServer(&config.Config{}), 0)
 			readQuery(client, tc.query)
 			ok, err := processBulkBuffer(client)
 			require.NoError(t, err)
@@ -106,7 +106,7 @@ func TestProcessMultiBulkBuffer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			client := NewClient(NewServer(&configure.Config{}), 0)
+			client := NewClient(NewServer(&config.Config{}), 0)
 			readQuery(client, tc.query)
 			ok, err := processMultiBulkBuffer(client)
 			require.NoError(t, err)

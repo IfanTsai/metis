@@ -1,4 +1,4 @@
-package configure
+package config
 
 import (
 	"log"
@@ -19,25 +19,24 @@ type Config struct {
 	DatabaseNum int    `mapstructure:"databases"`
 }
 
-func LoadConfig(configPath, configType string) *Config {
+func LoadConfig(configFile, configType string) *Config {
 	once.Do(func() {
-		viper.AddConfigPath(configPath)
+		viper.SetConfigFile(configFile)
 		viper.SetConfigType(configType)
-		viper.SetConfigName("config")
 
 		if err := viper.ReadInConfig(); err != nil {
-			log.Fatalln("cannot read configure: ", err)
+			log.Fatalln("cannot read config:", err)
 		}
 
 		if err := viper.Unmarshal(&config); err != nil {
-			log.Fatalln("failed to unmarshal from configure: ", err)
+			log.Fatalln("failed to unmarshal from config:", err)
 		}
 
 		viper.WatchConfig()
 
 		viper.OnConfigChange(func(e fsnotify.Event) {
 			if err := viper.Unmarshal(&config); err != nil {
-				log.Fatalln("failed to unmarshal from configure: ", err)
+				log.Fatalln("failed to unmarshal from config:", err)
 			}
 		})
 	})
