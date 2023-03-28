@@ -21,12 +21,13 @@ const (
 )
 
 type Server struct {
-	host      string
-	port      uint16
-	fd        socket.FD
-	clients   map[socket.FD]*Client
-	eventLoop *ae.EventLoop
-	dbs       []*database.Databse
+	host            string
+	port            uint16
+	fd              socket.FD
+	clients         map[socket.FD]*Client
+	eventLoop       *ae.EventLoop
+	dbs             []*database.Databse
+	requirePassword string
 }
 
 func NewServer(config *config.Config) *Server {
@@ -36,9 +37,10 @@ func NewServer(config *config.Config) *Server {
 	}
 
 	server := &Server{
-		host:    config.Host,
-		port:    config.Port,
-		clients: make(map[socket.FD]*Client),
+		host:            config.Host,
+		port:            config.Port,
+		clients:         make(map[socket.FD]*Client),
+		requirePassword: config.RequirePassword,
 	}
 
 	server.dbs = make([]*database.Databse, dbNum)
