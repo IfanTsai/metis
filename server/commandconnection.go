@@ -20,3 +20,14 @@ func selectCommand(client *Client) error {
 
 	return client.addReplyOK()
 }
+
+func authCommand(client *Client) error {
+	if client.srv.requirePassword == "" || client.srv.requirePassword == client.args[1] {
+		client.authenticated = true
+		return client.addReplyOK()
+	}
+
+	client.authenticated = false
+
+	return client.addReplyError("invalid password")
+}

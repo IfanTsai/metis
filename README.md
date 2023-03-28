@@ -8,6 +8,7 @@ You can use redis-cli to connect to metis. Supported commands are listed below.
 
 - PING
 - SELECT
+- AUTH
 - SET
 - GET
 - KEYS

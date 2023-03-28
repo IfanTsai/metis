@@ -18,6 +18,7 @@ var commandTable = []command{
 	// connection
 	{"ping", pingCommand, 1},
 	{"select", selectCommand, 2},
+	{"auth", authCommand, 2},
 	// key
 	{"expire", expireCommand, 3},
 	{"ttl", ttlCommand, 2},
@@ -97,13 +98,19 @@ func lookupCommand(name string) *command {
 func processCommand(client *Client) error {
 	var err error
 
-	cmd := lookupCommand(strings.ToLower(client.args[0]))
+	cmdName := strings.ToLower(client.args[0])
+	cmd := lookupCommand(cmdName)
 	switch {
 	case cmd == nil:
 		err = client.addReplyError("unknown command")
 	case (cmd.arity > 0 && len(client.args) != cmd.arity) || (len(client.args) < -cmd.arity):
 		err = client.addReplyError("wrong number of arguments")
 	default:
+		if client.srv.requirePassword != "" && !client.authenticated && cmdName != "auth" {
+			err = client.addReplyError("operation not permitted")
+			break
+		}
+
 		err = cmd.proc(client)
 	}
 

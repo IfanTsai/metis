@@ -25,17 +25,18 @@ const (
 )
 
 type Client struct {
-	srv          *Server
-	db           *database.Databse
-	fd           socket.FD
-	queryBuf     []byte
-	queryLen     int
-	cmdType      CommandType
-	args         []string
-	multiBulkLen int
-	bulkLen      int
-	replayHead   *list.List // string
-	sentLen      int
+	srv           *Server
+	db            *database.Databse
+	fd            socket.FD
+	queryBuf      []byte
+	queryLen      int
+	cmdType       CommandType
+	args          []string
+	multiBulkLen  int
+	bulkLen       int
+	replayHead    *list.List // string
+	sentLen       int
+	authenticated bool // when server requirPassword is not empty, client must auth first
 }
 
 func NewClient(srv *Server, fd socket.FD) *Client {
