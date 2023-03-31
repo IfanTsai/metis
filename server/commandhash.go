@@ -3,14 +3,15 @@ package server
 import (
 	"github.com/IfanTsai/metis/database"
 	"github.com/IfanTsai/metis/datastruct"
+	"github.com/pkg/errors"
 )
 
 func hSetCommand(client *Client) error {
 	key, field, fieldValue := client.args[1], client.args[2], client.args[3]
 
 	hash, err := getHash(client, key)
-	if hash == nil {
-		return err
+	if err != nil {
+		return client.addReplyError(err.Error())
 	}
 
 	hash.Set(field, fieldValue)
@@ -22,8 +23,12 @@ func hGetCommand(client *Client) error {
 	key, field := client.args[1], client.args[2]
 
 	hash, err := getHashIfExist(client, key)
-	if hash == nil {
-		return err
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyNull()
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	fieldValue := hash.Get(field)
@@ -38,8 +43,12 @@ func hDelCommand(client *Client) error {
 	key := client.args[1]
 
 	hash, err := getHashIfExist(client, key)
-	if hash == nil {
-		return err
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyInt(0)
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	var deleted int
@@ -56,8 +65,12 @@ func hExistsCommand(client *Client) error {
 	key, field := client.args[1], client.args[2]
 
 	hash, err := getHashIfExist(client, key)
-	if hash == nil {
-		return err
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyInt(0)
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	if hash.Find(field) == nil {
@@ -71,8 +84,12 @@ func hKeysCommand(client *Client) error {
 	key := client.args[1]
 
 	hash, err := getHashIfExist(client, key)
-	if hash == nil {
-		return err
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyEmpty()
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	iter := datastruct.NewDictIterator(hash)
@@ -90,8 +107,12 @@ func hLenCommand(client *Client) error {
 	key := client.args[1]
 
 	hash, err := getHashIfExist(client, key)
-	if hash == nil {
-		return err
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyInt(0)
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	return client.addReplyInt(hash.Size())
@@ -107,22 +128,27 @@ func getHash(client *Client, key string) (*datastruct.Dict, error) {
 
 	hash, ok := value.(*datastruct.Dict)
 	if !ok {
-		return nil, client.addReplyError("wrong type")
+		return nil, errWrongType
 	}
 
 	return hash, nil
 }
 
 func getHashIfExist(client *Client, key string) (*datastruct.Dict, error) {
+	// check if key expired
+	if _, err := expireIfNeeded(client, key); err != nil {
+		return nil, err
+	}
+
 	dict := client.db.Dict
 	value := dict.Get(key)
 	if value == nil {
-		return nil, client.addReplyInt(0)
+		return nil, errNotExist
 	}
 
 	hash, ok := value.(*datastruct.Dict)
 	if !ok {
-		return nil, client.addReplyError("wrong type")
+		return nil, errWrongType
 	}
 
 	return hash, nil

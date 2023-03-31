@@ -18,7 +18,7 @@ func getCommand(client *Client) error {
 	key := client.args[1]
 
 	// check if key expired
-	if _, err := expireIfNeeded(client.db, key); err != nil {
+	if _, err := expireIfNeeded(client, key); err != nil {
 		return client.addReplyErrorf("expireIfNeeded error: %v", err)
 	}
 
@@ -43,7 +43,7 @@ func randomGetCommand(client *Client) error {
 			return client.addReplyNull()
 		}
 
-		expired, err := expireIfNeeded(client.db, entry.Key.(string))
+		expired, err := expireIfNeeded(client, entry.Key.(string))
 		if err != nil {
 			log.Println("expireIfNeeded error:", err)
 		}

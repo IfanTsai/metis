@@ -68,7 +68,7 @@ func keysCommand(client *Client) error {
 		}
 
 		if matched {
-			expired, err := expireIfNeeded(client.db, entry.Key.(string))
+			expired, err := expireIfNeeded(client, entry.Key.(string))
 			if err != nil {
 				log.Println("expireIfNeeded error:", err)
 			}

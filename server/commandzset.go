@@ -5,20 +5,15 @@ import (
 
 	"github.com/IfanTsai/metis/database"
 	"github.com/IfanTsai/metis/datastruct"
+	"github.com/pkg/errors"
 )
 
 func zAddCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		value = datastruct.NewZset(&database.DictType{})
-		dict.Set(key, value)
-	}
 
-	zset, ok := value.(*datastruct.Zset)
-	if !ok {
-		return client.addReplyError("wrong type")
+	zset, err := getZset(client, key)
+	if err != nil {
+		return client.addReplyError(err.Error())
 	}
 
 	for i := 2; i < len(client.args); i += 2 {
@@ -36,15 +31,14 @@ func zAddCommand(client *Client) error {
 
 func zCardCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyNull()
-	}
 
-	zset, ok := value.(*datastruct.Zset)
-	if !ok {
-		return client.addReplyError("wrong type")
+	zset, err := getZsetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyInt(0)
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	return client.addReplyInt(zset.Size())
@@ -52,15 +46,14 @@ func zCardCommand(client *Client) error {
 
 func zScoreCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyNull()
-	}
 
-	zset, ok := value.(*datastruct.Zset)
-	if !ok {
-		return client.addReplyError("wrong type")
+	zset, err := getZsetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyNull()
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	member := client.args[2]
@@ -76,16 +69,6 @@ func zScoreCommand(client *Client) error {
 
 func zCountCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyNull()
-	}
-
-	zset, ok := value.(*datastruct.Zset)
-	if !ok {
-		return client.addReplyError("wrong type")
-	}
 
 	min, err := strconv.ParseFloat(client.args[2], 64)
 	if err != nil {
@@ -95,6 +78,15 @@ func zCountCommand(client *Client) error {
 	max, err := strconv.ParseFloat(client.args[3], 64)
 	if err != nil {
 		return client.addReplyErrorf("invalid max: %s, error: %v", client.args[3], err)
+	}
+
+	zset, err := getZsetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyInt(0)
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	count := zset.Count(min, max)
@@ -115,15 +107,13 @@ func zRangeCommand(client *Client) error {
 		return client.addReplyErrorf("invalid stop: %s, error: %v", client.args[3], err)
 	}
 
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyNull()
-	}
+	zset, err := getZsetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyNull()
+		}
 
-	zset, ok := value.(*datastruct.Zset)
-	if !ok {
-		return client.addReplyError("wrong type")
+		return client.addReplyError(err.Error())
 	}
 
 	elements := zset.RangeByRank(start, stop, false)
@@ -144,15 +134,13 @@ func zRangeByScoreCommand(client *Client) error {
 		return client.addReplyErrorf("invalid start: %s, error: %v", client.args[3], err)
 	}
 
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyNull()
-	}
+	zset, err := getZsetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyNull()
+		}
 
-	zset, ok := value.(*datastruct.Zset)
-	if !ok {
-		return client.addReplyError("wrong type")
+		return client.addReplyError(err.Error())
 	}
 
 	elements := zset.RangeByScore(min, max, -1, false)
@@ -163,37 +151,27 @@ func zRangeByScoreCommand(client *Client) error {
 func zRemCommand(client *Client) error {
 	key := client.args[1]
 
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyNull()
+	zset, err := getZsetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyInt(0)
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
-	zset, ok := value.(*datastruct.Zset)
-	if !ok {
-		return client.addReplyError("wrong type")
-	}
-
+	var deleted int
 	for i := 2; i < len(client.args); i++ {
-		zset.Delete(client.args[i])
+		if zset.Delete(client.args[i]) {
+			deleted++
+		}
 	}
 
-	return client.addReplyOK()
+	return client.addReplyInt(int64(deleted))
 }
 
 func zRemRangeByRankCommand(client *Client) error {
 	key := client.args[1]
-
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyNull()
-	}
-
-	zset, ok := value.(*datastruct.Zset)
-	if !ok {
-		return client.addReplyError("wrong type")
-	}
 
 	start, err := strconv.ParseInt(client.args[2], 10, 64)
 	if err != nil {
@@ -205,24 +183,22 @@ func zRemRangeByRankCommand(client *Client) error {
 		return client.addReplyErrorf("invalid start: %s, error: %v", client.args[3], err)
 	}
 
-	zset.DeleteRangeByRank(start, stop)
+	zset, err := getZsetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyInt(0)
+		}
 
-	return client.addReplyOK()
+		return client.addReplyError(err.Error())
+	}
+
+	deletedElements := zset.DeleteRangeByRank(start, stop)
+
+	return client.addReplyInt(int64(len(deletedElements)))
 }
 
 func zRemRangeByScoreCommand(client *Client) error {
 	key := client.args[1]
-
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyNull()
-	}
-
-	zset, ok := value.(*datastruct.Zset)
-	if !ok {
-		return client.addReplyError("wrong type")
-	}
 
 	min, err := strconv.ParseFloat(client.args[2], 64)
 	if err != nil {
@@ -234,7 +210,52 @@ func zRemRangeByScoreCommand(client *Client) error {
 		return client.addReplyErrorf("invalid start: %s, error: %v", client.args[3], err)
 	}
 
-	zset.DeleteRangeByScore(min, max)
+	zset, err := getZsetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyInt(0)
+		}
 
-	return client.addReplyOK()
+		return client.addReplyError(err.Error())
+	}
+
+	deletedElements := zset.DeleteRangeByScore(min, max)
+
+	return client.addReplyInt(int64(len(deletedElements)))
+}
+
+func getZset(client *Client, key string) (*datastruct.Zset, error) {
+	dict := client.db.Dict
+	value := dict.Get(key)
+	if value == nil {
+		value = datastruct.NewZset(&database.DictType{})
+		dict.Set(key, value)
+	}
+
+	zset, ok := value.(*datastruct.Zset)
+	if !ok {
+		return nil, errWrongType
+	}
+
+	return zset, nil
+}
+
+func getZsetIfExist(client *Client, key string) (*datastruct.Zset, error) {
+	// check if key expired
+	if _, err := expireIfNeeded(client, key); err != nil {
+		return nil, err
+	}
+
+	dict := client.db.Dict
+	value := dict.Get(key)
+	if value == nil {
+		return nil, errNotExist
+	}
+
+	zset, ok := value.(*datastruct.Zset)
+	if !ok {
+		return nil, errWrongType
+	}
+
+	return zset, nil
 }

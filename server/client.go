@@ -110,6 +110,10 @@ func (c *Client) addReplyNull() error {
 	return c.addReplyString("$-1\r\n")
 }
 
+func (c *Client) addReplyEmpty() error {
+	return c.addReplyArrays([]string{})
+}
+
 func (c *Client) addReplyArrays(strs []string) error {
 	if err := c.addReplyStringf("*%d\r\n", len(strs)); err != nil {
 		return err
