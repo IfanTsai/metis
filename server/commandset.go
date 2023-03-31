@@ -8,16 +8,10 @@ import (
 
 func sAddCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		value = datastruct.NewSet(&database.DictType{})
-		dict.Set(key, value)
-	}
 
-	set, ok := value.(*datastruct.Set)
-	if !ok {
-		return client.addReplyError("wrong type")
+	set, err := getSet(client, key)
+	if err != nil {
+		return client.addReplyError(err.Error())
 	}
 
 	for i := 2; i < len(client.args); i++ {
@@ -29,15 +23,14 @@ func sAddCommand(client *Client) error {
 
 func sRemCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyInt(0)
-	}
 
-	set, ok := value.(*datastruct.Set)
-	if !ok {
-		return client.addReplyError("wrong type")
+	set, err := getSetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyInt(0)
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	deleted := 0
@@ -47,20 +40,19 @@ func sRemCommand(client *Client) error {
 		}
 	}
 
-	return client.addReplyInt(set.Size())
+	return client.addReplyInt(int64(deleted))
 }
 
 func sPopCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyInt(0)
-	}
 
-	set, ok := value.(*datastruct.Set)
-	if !ok {
-		return client.addReplyError("wrong type")
+	set, err := getSetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyNull()
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	if set.Size() == 0 {
@@ -77,15 +69,14 @@ func sPopCommand(client *Client) error {
 
 func sCardCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyInt(0)
-	}
 
-	set, ok := value.(*datastruct.Set)
-	if !ok {
-		return client.addReplyError("wrong type")
+	set, err := getSetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyInt(0)
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	return client.addReplyInt(set.Size())
@@ -93,15 +84,14 @@ func sCardCommand(client *Client) error {
 
 func sIsMemberCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyInt(0)
-	}
 
-	set, ok := value.(*datastruct.Set)
-	if !ok {
-		return client.addReplyError("wrong type")
+	set, err := getSetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyInt(0)
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	if set.Contains(client.args[2]) {
@@ -113,42 +103,37 @@ func sIsMemberCommand(client *Client) error {
 
 func sMembersCommand(client *Client) error {
 	key := client.args[1]
-	dict := client.db.Dict
-	value := dict.Get(key)
-	if value == nil {
-		return client.addReplyInt(0)
-	}
 
-	set, ok := value.(*datastruct.Set)
-	if !ok {
-		return client.addReplyError("wrong type")
+	set, err := getSetIfExist(client, key)
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyEmpty()
+		}
+
+		return client.addReplyError(err.Error())
 	}
 
 	return client.addReplySet(set)
 }
 
 func sDiffCommand(client *Client) error {
-	dict := client.db.Dict
+	set, err := getSetIfExist(client, client.args[1])
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyEmpty()
+		}
 
-	value := dict.Get(client.args[1])
-	if value == nil {
-		return client.addReplyInt(0)
-	}
-
-	set, ok := value.(*datastruct.Set)
-	if !ok {
-		return client.addReplyError("wrong type")
+		return client.addReplyError(err.Error())
 	}
 
 	for i := 2; i < len(client.args); i++ {
-		value := dict.Get(client.args[i])
-		if value == nil {
-			continue
-		}
+		set2, err := getSetIfExist(client, client.args[i])
+		if err != nil {
+			if errors.Is(err, errNotExist) {
+				continue
+			}
 
-		set2, ok := value.(*datastruct.Set)
-		if !ok {
-			return client.addReplyError("wrong type")
+			return client.addReplyError(err.Error())
 		}
 
 		set = set.Difference(set2)
@@ -158,62 +143,89 @@ func sDiffCommand(client *Client) error {
 }
 
 func sInterCommand(client *Client) error {
-	dict := client.db.Dict
+	set, err := getSetIfExist(client, client.args[1])
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyEmpty()
+		}
 
-	value := dict.Get(client.args[1])
-	if value == nil {
-		return client.addReplyInt(0)
-	}
-
-	set, ok := value.(*datastruct.Set)
-	if !ok {
-		return client.addReplyError("wrong type")
+		return client.addReplyError(err.Error())
 	}
 
 	for i := 2; i < len(client.args); i++ {
-		value := dict.Get(client.args[i])
-		if value == nil {
-			continue
-		}
+		set2, err := getSetIfExist(client, client.args[i])
+		if err != nil {
+			if errors.Is(err, errNotExist) {
+				return client.addReplyEmpty()
+			}
 
-		set2, ok := value.(*datastruct.Set)
-		if !ok {
-			return client.addReplyError("wrong type")
+			return client.addReplyError(err.Error())
 		}
 
 		set = set.Intersect(set2)
 	}
 
 	return client.addReplySet(set)
-
 }
 
 func sUnionCommand(client *Client) error {
-	dict := client.db.Dict
+	set, err := getSetIfExist(client, client.args[1])
+	if err != nil {
+		if errors.Is(err, errNotExist) {
+			return client.addReplyEmpty()
+		}
 
-	value := dict.Get(client.args[1])
-	if value == nil {
-		return client.addReplyInt(0)
-	}
-
-	set, ok := value.(*datastruct.Set)
-	if !ok {
-		return client.addReplyError("wrong type")
+		return client.addReplyError(err.Error())
 	}
 
 	for i := 2; i < len(client.args); i++ {
-		value := dict.Get(client.args[i])
-		if value == nil {
-			continue
-		}
+		set2, err := getSetIfExist(client, client.args[i])
+		if err != nil {
+			if errors.Is(err, errNotExist) {
+				continue
+			}
 
-		set2, ok := value.(*datastruct.Set)
-		if !ok {
-			return client.addReplyError("wrong type")
+			return client.addReplyError(err.Error())
 		}
 
 		set = set.Union(set2)
 	}
 
 	return client.addReplySet(set)
+}
+
+func getSet(client *Client, key string) (*datastruct.Set, error) {
+	dict := client.db.Dict
+	value := dict.Get(key)
+	if value == nil {
+		value = datastruct.NewSet(&database.DictType{})
+		dict.Set(key, value)
+	}
+
+	set, ok := value.(*datastruct.Set)
+	if !ok {
+		return nil, errWrongType
+	}
+
+	return set, nil
+}
+
+func getSetIfExist(client *Client, key string) (*datastruct.Set, error) {
+	// check if key expired
+	if _, err := expireIfNeeded(client, key); err != nil {
+		return nil, err
+	}
+
+	dict := client.db.Dict
+	value := dict.Get(key)
+	if value == nil {
+		return nil, errNotExist
+	}
+
+	set, ok := value.(*datastruct.Set)
+	if !ok {
+		return nil, errWrongType
+	}
+
+	return set, nil
 }

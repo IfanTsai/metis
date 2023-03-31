@@ -4,8 +4,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/IfanTsai/metis/database"
 	"github.com/pkg/errors"
+)
+
+var (
+	errNotExist  = errors.New("not exist")
+	errWrongType = errors.New("wrong type")
 )
 
 type command struct {
@@ -66,8 +70,8 @@ var commandTable = []command{
 	// TODO: implement more commands
 }
 
-func expireIfNeeded(db *database.Databse, key string) (bool, error) {
-	expireObj := db.Expire.Find(key)
+func expireIfNeeded(client *Client, key string) (bool, error) {
+	expireObj := client.db.Expire.Find(key)
 	if expireObj != nil {
 		when, ok := expireObj.Value.(int64)
 		if !ok {
@@ -75,8 +79,8 @@ func expireIfNeeded(db *database.Databse, key string) (bool, error) {
 		}
 
 		if when < time.Now().UnixMilli() {
-			_ = db.Dict.Delete(key)
-			_ = db.Expire.Delete(key)
+			_ = client.db.Dict.Delete(key)
+			_ = client.db.Expire.Delete(key)
 
 			return true, nil
 		}
