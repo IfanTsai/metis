@@ -25,14 +25,16 @@ var commandTable = []command{
 	{"auth", authCommand, 2},
 	// key
 	{"expire", expireCommand, 3},
+	{"expireat", expireAtCommand, 3},
 	{"ttl", ttlCommand, 2},
 	{"keys", keysCommand, 2},
 	// string
 	{"set", setCommand, -3},
+	{"setex", setExCommand, 4},
 	{"get", getCommand, 2},
 	{"randomget", randomGetCommand, 1},
 	// hash
-	{"hset", hSetCommand, 4},
+	{"hset", hSetCommand, -4},
 	{"hget", hGetCommand, 3},
 	{"hdel", hDelCommand, -3},
 	{"hexists", hExistsCommand, 3},
@@ -115,10 +117,25 @@ func processCommand(client *Client) error {
 			break
 		}
 
-		err = cmd.proc(client)
+		err = call(client, cmd)
 	}
 
 	client.reset()
 
 	return err
+}
+
+// call is the core of Metis execution of a command.
+func call(client *Client, cmd *command) error {
+	dirty := client.srv.dirty
+	if err := cmd.proc(client); err != nil {
+		return err
+	}
+	dirty = client.srv.dirty - dirty
+
+	if client.srv.appendOnly && dirty != 0 {
+		feedAppendOnlyFile(client.srv, cmd, client.db.ID, client.args)
+	}
+
+	return nil
 }

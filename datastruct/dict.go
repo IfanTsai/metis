@@ -110,7 +110,9 @@ func NewDict(dictType DictType) *Dict {
 	}
 }
 
-func (d *Dict) Set(key, value any) {
+// Set sets the value of the key in the dict.
+// Return true if the key is new, otherwise return false.
+func (d *Dict) Set(key, value any) bool {
 	if d.isRehashing() {
 		d.rehashStep()
 	}
@@ -121,7 +123,7 @@ func (d *Dict) Set(key, value any) {
 		entry := d.Find(key)
 		entry.Value = value
 
-		return
+		return false
 	}
 
 	hTable := d.hashTables[0]
@@ -135,6 +137,8 @@ func (d *Dict) Set(key, value any) {
 		next:  hTable.tables[index],
 	}
 	hTable.used++
+
+	return true
 }
 
 func (d *Dict) Get(key any) any {

@@ -14,11 +14,16 @@ func sAddCommand(client *Client) error {
 		return client.addReplyError(err.Error())
 	}
 
+	var created int64
 	for i := 2; i < len(client.args); i++ {
-		set.Add(client.args[i])
+		if set.Add(client.args[i]) {
+			created++
+		}
+
+		client.srv.dirty++
 	}
 
-	return client.addReplyInt(set.Size())
+	return client.addReplyInt(created)
 }
 
 func sRemCommand(client *Client) error {
@@ -33,14 +38,15 @@ func sRemCommand(client *Client) error {
 		return client.addReplyError(err.Error())
 	}
 
-	deleted := 0
+	var deleted int64
 	for i := 2; i < len(client.args); i++ {
 		if set.Delete(client.args[i]) == nil {
 			deleted++
+			client.srv.dirty++
 		}
 	}
 
-	return client.addReplyInt(int64(deleted))
+	return client.addReplyInt(deleted)
 }
 
 func sPopCommand(client *Client) error {
@@ -63,6 +69,8 @@ func sPopCommand(client *Client) error {
 	if err := set.Delete(randomMember); err != nil && !errors.Is(err, datastruct.ErrKeyNotFound) {
 		return client.addReplyErrorf("delete random member error: %v", err)
 	}
+
+	client.srv.dirty++
 
 	return client.addReplyBulkString(randomMember.(string))
 }
