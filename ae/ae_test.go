@@ -71,13 +71,30 @@ func TestEventLoop_Main(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 
-	stop := make(chan struct{}, 10)
+	stop := make(chan struct{}, 10*2)
 
+	timeEventCalled := 0
 	err = eventLoop.AddTimeEvent(ae.TypeTimeEventNormal, 10, func(el *ae.EventLoop, id int64, clientData any) {
 		require.Equal(t, int64(1), id)
+
+		if timeEventCalled == 10 {
+			return
+		}
+
+		timeEventCalled++
 		stop <- struct{}{}
 	}, nil)
 	require.NoError(t, err)
+
+	beforeSleepCalled := 0
+	eventLoop.SetBeforeSleepProc(func(el *ae.EventLoop) {
+		if beforeSleepCalled == 10 {
+			return
+		}
+
+		beforeSleepCalled++
+		stop <- struct{}{}
+	})
 
 	for i := 0; i < cap(stop); i++ {
 		<-stop
