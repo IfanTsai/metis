@@ -9,6 +9,10 @@ import (
 )
 
 func zAddCommand(client *Client) error {
+	if len(client.args)&1 != 0 {
+		return client.addReplyError("wrong number of arguments for 'zadd' command")
+	}
+
 	key := client.args[1]
 
 	zset, err := getZset(client, key)
@@ -16,6 +20,7 @@ func zAddCommand(client *Client) error {
 		return client.addReplyError(err.Error())
 	}
 
+	var created int64
 	for i := 2; i < len(client.args); i += 2 {
 		score, err := strconv.ParseFloat(client.args[i], 64)
 		if err != nil {
@@ -23,10 +28,14 @@ func zAddCommand(client *Client) error {
 		}
 
 		member := client.args[i+1]
-		zset.Add(score, member)
+		if zset.Add(score, member) {
+			created++
+		}
+
+		client.srv.dirty++
 	}
 
-	return client.addReplyOK()
+	return client.addReplyInt(created)
 }
 
 func zCardCommand(client *Client) error {
@@ -164,6 +173,7 @@ func zRemCommand(client *Client) error {
 	for i := 2; i < len(client.args); i++ {
 		if zset.Delete(client.args[i]) {
 			deleted++
+			client.srv.dirty++
 		}
 	}
 
@@ -193,6 +203,7 @@ func zRemRangeByRankCommand(client *Client) error {
 	}
 
 	deletedElements := zset.DeleteRangeByRank(start, stop)
+	client.srv.dirty += int64(len(deletedElements))
 
 	return client.addReplyInt(int64(len(deletedElements)))
 }
@@ -220,6 +231,7 @@ func zRemRangeByScoreCommand(client *Client) error {
 	}
 
 	deletedElements := zset.DeleteRangeByScore(min, max)
+	client.srv.dirty += int64(len(deletedElements))
 
 	return client.addReplyInt(int64(len(deletedElements)))
 }

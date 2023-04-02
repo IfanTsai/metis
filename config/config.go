@@ -13,11 +13,22 @@ var (
 	config Config
 )
 
+type TypeAppnedFsync string
+
+const (
+	TypeAppendFsyncAlways      TypeAppnedFsync = "always"
+	TypeAppendFsyncEverySecond TypeAppnedFsync = "everysec"
+	TypeAppendFsyncNever       TypeAppnedFsync = "no"
+)
+
 type Config struct {
-	Host            string `mapstructure:"bind"`
-	Port            uint16 `mapstructure:"port"`
-	DatabaseNum     int    `mapstructure:"databases"`
-	RequirePassword string `mapstructure:"requirepass"`
+	Host            string          `mapstructure:"bind"`
+	Port            uint16          `mapstructure:"port"`
+	DatabaseNum     int             `mapstructure:"databases"`
+	RequirePassword string          `mapstructure:"requirepass"`
+	AppnedOnly      bool            `mapstructure:"appendonly"`
+	AppendFilename  string          `mapstructure:"appendfilename"`
+	AppendFsync     TypeAppnedFsync `mapstructure:"appendfsync"`
 }
 
 func LoadConfig(configFile, configType string) *Config {

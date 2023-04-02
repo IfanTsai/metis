@@ -17,6 +17,7 @@ func lPushCommand(client *Client) error {
 
 	for i := 2; i < len(client.args); i++ {
 		list.PushFront(client.args[i])
+		client.srv.dirty++
 	}
 
 	return client.addReplyInt(int64(list.Len()))
@@ -32,6 +33,7 @@ func rPushCommand(client *Client) error {
 
 	for i := 2; i < len(client.args); i++ {
 		list.PushBack(client.args[i])
+		client.srv.dirty++
 	}
 
 	return client.addReplyInt(int64(list.Len()))
@@ -53,6 +55,8 @@ func lPopCommand(client *Client) error {
 		return client.addReplyNull()
 	}
 
+	client.srv.dirty++
+
 	return client.addReplyBulkString(list.PopFront().(string))
 }
 
@@ -71,6 +75,8 @@ func rPopCommand(client *Client) error {
 	if list.Len() == 0 {
 		return client.addReplyNull()
 	}
+
+	client.srv.dirty++
 
 	return client.addReplyBulkString(list.PopBack().(string))
 }

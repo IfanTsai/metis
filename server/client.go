@@ -63,7 +63,7 @@ func (c *Client) moveToNextLineInQueryBuffer(indexCRLF int) {
 }
 
 func (c *Client) addReply(str string) error {
-	if c.replayHead.Len() == 0 {
+	if c.replayHead.Len() == 0 && c.fd >= 0 {
 		if err := c.srv.eventLoop.AddFileEvent(c.fd, ae.TypeFileEventWritable, sendReplayToClient, c); err != nil {
 			return errors.Wrap(err, "failed to add writable file event")
 		}
@@ -180,16 +180,19 @@ func (c *Client) addReplySet(set *datastruct.Set) error {
 }
 
 func (c *Client) free() {
-	if c.srv != nil {
+	if c.srv != nil && c.fd >= 0 {
 		delete(c.srv.clients, c.fd)
 
 		if c.srv.eventLoop != nil {
-			c.srv.eventLoop.RemoveFileEvent(c.fd, ae.TypeFileEventReadable)
-			c.srv.eventLoop.RemoveFileEvent(c.fd, ae.TypeFileEventWritable)
+			_ = c.srv.eventLoop.RemoveFileEvent(c.fd, ae.TypeFileEventReadable)
+			_ = c.srv.eventLoop.RemoveFileEvent(c.fd, ae.TypeFileEventWritable)
 		}
 	}
 
-	c.fd.Close()
+	if c.fd >= 0 {
+		_ = c.fd.Close()
+	}
+
 }
 
 func (c *Client) reset() {
