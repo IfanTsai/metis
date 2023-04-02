@@ -19,8 +19,9 @@ type (
 	TypeFileEvent int
 	TypeTimeEvent int
 
-	FileProc func(el *EventLoop, fd socket.FD, clientData any)
-	TimeProc func(el *EventLoop, id int64, clientData any)
+	FileProc        func(el *EventLoop, fd socket.FD, clientData any)
+	TimeProc        func(el *EventLoop, id int64, clientData any)
+	BeforeSleepProc func(el *EventLoop)
 )
 
 const (
@@ -50,9 +51,10 @@ type TimeEvent struct {
 }
 
 type EventLoop struct {
-	FileEventMap    map[int]*FileEvent
-	TimeEventHead   *list.List // element is *TimeEvent
-	TimeEventNextID int64
+	fileEventMap    map[int]*FileEvent
+	timeEventHead   *list.List // element is *TimeEvent
+	timeEventNextID int64
+	beforeSleep     BeforeSleepProc
 	fileEventFd     int
 	stop            bool
 }
@@ -65,8 +67,8 @@ func NewEventLoop() (*EventLoop, error) {
 	}
 
 	return &EventLoop{
-		FileEventMap:  make(map[int]*FileEvent),
-		TimeEventHead: list.New(),
+		fileEventMap:  make(map[int]*FileEvent),
+		timeEventHead: list.New(),
 		fileEventFd:   epFd,
 		stop:          false,
 	}, nil
@@ -75,7 +77,7 @@ func NewEventLoop() (*EventLoop, error) {
 // AddFileEvent adds file event to event loop
 func (el *EventLoop) AddFileEvent(fd socket.FD, mask TypeFileEvent, proc FileProc, clientData any) error {
 	fileEventMapKey := getFileEventMapKey(fd, mask)
-	if _, ok := el.FileEventMap[fileEventMapKey]; ok {
+	if _, ok := el.fileEventMap[fileEventMapKey]; ok {
 		return errors.New("file event already exists")
 	}
 
@@ -90,7 +92,7 @@ func (el *EventLoop) AddFileEvent(fd socket.FD, mask TypeFileEvent, proc FilePro
 		return errors.Wrap(err, "epoll ctl failed")
 	}
 
-	el.FileEventMap[fileEventMapKey] = &FileEvent{
+	el.fileEventMap[fileEventMapKey] = &FileEvent{
 		fd:         fd,
 		mask:       mask,
 		proc:       proc,
@@ -100,10 +102,15 @@ func (el *EventLoop) AddFileEvent(fd socket.FD, mask TypeFileEvent, proc FilePro
 	return nil
 }
 
+// SetBeforeSleepProc sets before sleep proc
+func (el *EventLoop) SetBeforeSleepProc(proc BeforeSleepProc) {
+	el.beforeSleep = proc
+}
+
 // RemoveFileEvent removes file event from event loop
 func (el *EventLoop) RemoveFileEvent(fd socket.FD, mask TypeFileEvent) error {
 	fileEventMapKey := getFileEventMapKey(fd, mask)
-	if _, ok := el.FileEventMap[fileEventMapKey]; !ok {
+	if _, ok := el.fileEventMap[fileEventMapKey]; !ok {
 		return errors.New("file event not exists")
 	}
 
@@ -118,15 +125,15 @@ func (el *EventLoop) RemoveFileEvent(fd socket.FD, mask TypeFileEvent) error {
 		return errors.Wrap(err, "epoll ctl failed")
 	}
 
-	delete(el.FileEventMap, fileEventMapKey)
+	delete(el.fileEventMap, fileEventMapKey)
 
 	return nil
 }
 
 // AddTimeEvent adds time event to event loop
 func (el *EventLoop) AddTimeEvent(mask TypeTimeEvent, interval int64, proc TimeProc, clientData any) error {
-	el.TimeEventHead.PushFront(&TimeEvent{
-		id:         el.TimeEventNextID,
+	el.timeEventHead.PushFront(&TimeEvent{
+		id:         el.timeEventNextID,
 		mask:       mask,
 		when:       now() + interval,
 		interval:   interval,
@@ -134,17 +141,17 @@ func (el *EventLoop) AddTimeEvent(mask TypeTimeEvent, interval int64, proc TimeP
 		clientData: clientData,
 	})
 
-	el.TimeEventNextID++
+	el.timeEventNextID++
 
 	return nil
 }
 
 // RemoveTimeEvent removes time event from event loop
 func (el *EventLoop) RemoveTimeEvent(id int64) error {
-	for e := el.TimeEventHead.Front(); e != nil; e = e.Next() {
+	for e := el.timeEventHead.Front(); e != nil; e = e.Next() {
 		te := e.Value.(*TimeEvent)
 		if te.id == id {
-			el.TimeEventHead.Remove(e)
+			el.timeEventHead.Remove(e)
 
 			return nil
 		}
@@ -156,6 +163,10 @@ func (el *EventLoop) RemoveTimeEvent(id int64) error {
 // Main runs event loop
 func (el *EventLoop) Main() error {
 	for !el.stop {
+		if el.beforeSleep != nil {
+			el.beforeSleep(el)
+		}
+
 		timeEvents, fileEvents, err := el.wait()
 		if err != nil && !errors.Is(err, syscall.EINTR) {
 			log.Println("wait failed:", err)
@@ -218,7 +229,7 @@ func (el *EventLoop) wait() ([]*TimeEvent, []*FileEvent, error) {
 		ev := events[i]
 		for _, epollEventType := range epollEventTypes {
 			if ev.Events&epollEventType != 0 {
-				fileEvent, ok := el.FileEventMap[getFileEventMapKey(socket.FD(ev.Fd), getFileEventType(epollEventType))]
+				fileEvent, ok := el.fileEventMap[getFileEventMapKey(socket.FD(ev.Fd), getFileEventType(epollEventType))]
 				if ok {
 					fileEvents = append(fileEvents, fileEvent)
 				}
@@ -227,7 +238,7 @@ func (el *EventLoop) wait() ([]*TimeEvent, []*FileEvent, error) {
 	}
 
 	nowMs := now()
-	for e := el.TimeEventHead.Front(); e != nil; e = e.Next() {
+	for e := el.timeEventHead.Front(); e != nil; e = e.Next() {
 		te := e.Value.(*TimeEvent)
 		if te.when <= nowMs {
 			timeEvents = append(timeEvents, te)
@@ -239,7 +250,7 @@ func (el *EventLoop) wait() ([]*TimeEvent, []*FileEvent, error) {
 
 func (el *EventLoop) getNearestTime(defaultNearestDelta int64) int64 {
 	nearest := now() + defaultNearestDelta
-	for e := el.TimeEventHead.Front(); e != nil; e = e.Next() {
+	for e := el.timeEventHead.Front(); e != nil; e = e.Next() {
 		te := e.Value.(*TimeEvent)
 		if te.when < nearest {
 			nearest = te.when
@@ -253,11 +264,11 @@ func (el *EventLoop) getNearestTime(defaultNearestDelta int64) int64 {
 func (el *EventLoop) getEpollEventMask(fd socket.FD) uint32 {
 	var mask uint32
 
-	if _, ok := el.FileEventMap[getFileEventMapKey(fd, TypeFileEventReadable)]; ok {
+	if _, ok := el.fileEventMap[getFileEventMapKey(fd, TypeFileEventReadable)]; ok {
 		mask |= syscall.EPOLLIN
 	}
 
-	if _, ok := el.FileEventMap[getFileEventMapKey(fd, TypeFileEventWritable)]; ok {
+	if _, ok := el.fileEventMap[getFileEventMapKey(fd, TypeFileEventWritable)]; ok {
 		mask |= syscall.EPOLLOUT
 	}
 
