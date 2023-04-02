@@ -7,16 +7,26 @@ import (
 )
 
 func hSetCommand(client *Client) error {
-	key, field, fieldValue := client.args[1], client.args[2], client.args[3]
+	if len(client.args)&1 != 0 {
+		return client.addReplyError("wrong number of arguments for 'hset' command")
+	}
+
+	key := client.args[1]
 
 	hash, err := getHash(client, key)
 	if err != nil {
 		return client.addReplyError(err.Error())
 	}
 
-	hash.Set(field, fieldValue)
+	var created int64
+	for i := 2; i < len(client.args) && i+1 < len(client.args); i += 2 {
+		if hash.Set(client.args[i], client.args[i+1]) {
+			created++
+		}
+		client.srv.dirty++
+	}
 
-	return client.addReplyInt(1)
+	return client.addReplyInt(created)
 }
 
 func hGetCommand(client *Client) error {
@@ -51,14 +61,15 @@ func hDelCommand(client *Client) error {
 		return client.addReplyError(err.Error())
 	}
 
-	var deleted int
+	var deleted int64
 	for _, field := range client.args[2:] {
 		if hash.Delete(field) == nil {
 			deleted++
+			client.srv.dirty++
 		}
 	}
 
-	return client.addReplyInt(int64(deleted))
+	return client.addReplyInt(deleted)
 }
 
 func hExistsCommand(client *Client) error {

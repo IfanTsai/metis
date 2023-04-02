@@ -27,5 +27,8 @@ go.work
 ./bin/*
 .idea
 
+# metis AOF file
+*.aof
+
 # End of https://www.toptal.com/developers/gitignore/api/go
 

@@ -2,6 +2,8 @@ package server
 
 import (
 	"log"
+	"os"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,6 +30,16 @@ type Server struct {
 	eventLoop       *ae.EventLoop
 	dbs             []*database.Databse
 	requirePassword string
+	dirty           int64 // changes to DB from the last save
+
+	// aof
+	appendOnly       bool
+	appendFilename   string
+	appendFync       config.TypeAppnedFsync
+	lastFsyncTime    time.Time
+	appendSelectDBID int
+	appendFile       *os.File
+	aofBuf           strings.Builder
 }
 
 func NewServer(config *config.Config) *Server {
@@ -41,11 +53,23 @@ func NewServer(config *config.Config) *Server {
 		port:            config.Port,
 		clients:         make(map[socket.FD]*Client),
 		requirePassword: config.RequirePassword,
+		appendOnly:      config.AppnedOnly,
+		appendFilename:  config.AppendFilename,
+		appendFync:      config.AppendFsync,
+	}
+
+	if server.appendOnly {
+		appendFile, err := os.OpenFile(server.appendFilename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalf("failed to open append only file: %+v", err)
+		}
+
+		server.appendFile = appendFile
 	}
 
 	server.dbs = make([]*database.Databse, dbNum)
 	for i := 0; i < dbNum; i++ {
-		server.dbs[i] = database.NewDatabase()
+		server.dbs[i] = database.NewDatabase(i)
 	}
 
 	return server
@@ -71,8 +95,15 @@ func (s *Server) Run() error {
 		return err
 	}
 
+	eventLoop.SetBeforeSleepProc(beforeSleepProc(eventLoop, s))
+
 	s.fd = listenFd
 	s.eventLoop = eventLoop
+
+	// TODO: load data from append only file
+	if s.appendOnly {
+		loadAppendOnlyFile(s)
+	}
 
 	return eventLoop.Main()
 }
@@ -80,6 +111,10 @@ func (s *Server) Run() error {
 func (s *Server) Stop() {
 	s.eventLoop.Stop()
 	s.fd.Close()
+
+	if s.appendFile != nil {
+		s.appendFile.Close()
+	}
 }
 
 func acceptTCPHandler(el *ae.EventLoop, fd socket.FD, extra any) {
@@ -202,5 +237,12 @@ func expireKeyCronJob(el *ae.EventLoop, id int64, clientData any) {
 				db.Expire.Delete(entry.Key)
 			}
 		}
+	}
+}
+
+func beforeSleepProc(el *ae.EventLoop, srv *Server) ae.BeforeSleepProc {
+	return func(el *ae.EventLoop) {
+		// write the AOF buffer on disk.
+		flushAppendOnlyFile(srv)
 	}
 }

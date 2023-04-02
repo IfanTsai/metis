@@ -19,6 +19,21 @@ func expireCommand(client *Client) error {
 
 	when := time.Now().UnixMilli() + expireInt*1000
 	client.db.Expire.Set(key, when)
+	client.srv.dirty++
+
+	return client.addReplyOK()
+}
+
+func expireAtCommand(client *Client) error {
+	key := client.args[1]
+
+	expireInt, err := strconv.ParseInt(client.args[2], 10, 64)
+	if err != nil {
+		return client.addReplyErrorf("invalid expire: %s, error: %v", client.args[2], err)
+	}
+
+	client.db.Expire.Set(key, expireInt*1000)
+	client.srv.dirty++
 
 	return client.addReplyOK()
 }

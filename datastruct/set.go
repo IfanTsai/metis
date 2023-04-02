@@ -8,8 +8,8 @@ func NewSet(dictType DictType) *Set {
 	return &Set{dict: NewDict(dictType)}
 }
 
-func (s *Set) Add(member any) {
-	s.dict.Set(member, nil)
+func (s *Set) Add(member any) bool {
+	return s.dict.Set(member, nil)
 }
 
 func (s *Set) Delete(member any) error {
