@@ -22,13 +22,15 @@ const (
 )
 
 type Config struct {
-	Host            string          `mapstructure:"bind"`
-	Port            uint16          `mapstructure:"port"`
-	DatabaseNum     int             `mapstructure:"databases"`
-	RequirePassword string          `mapstructure:"requirepass"`
-	AppnedOnly      bool            `mapstructure:"appendonly"`
-	AppendFilename  string          `mapstructure:"appendfilename"`
-	AppendFsync     TypeAppnedFsync `mapstructure:"appendfsync"`
+	Host              string          `mapstructure:"bind"`
+	Port              uint16          `mapstructure:"port"`
+	DatabaseNum       int             `mapstructure:"databases"`
+	RequirePassword   string          `mapstructure:"requirepass"`
+	AofEnable         bool            `mapstructure:"appendonly"`
+	AofFilename       string          `mapstructure:"appendfilename"`
+	AofFsync          TypeAppnedFsync `mapstructure:"appendfsync"`
+	AofRewritePercent uint            `mapstructure:"auto-aof-rewrite-percentage"`
+	AofRewriteMinSize uint            // `mapstructure:"auto-aof-rewrite-min-size"`
 }
 
 func LoadConfig(configFile, configType string) *Config {
@@ -44,12 +46,16 @@ func LoadConfig(configFile, configType string) *Config {
 			log.Fatalln("failed to unmarshal from config:", err)
 		}
 
+		config.AofRewriteMinSize = viper.GetSizeInBytes("auto-aof-rewrite-min-size")
+
 		viper.WatchConfig()
 
 		viper.OnConfigChange(func(e fsnotify.Event) {
 			if err := viper.Unmarshal(&config); err != nil {
 				log.Fatalln("failed to unmarshal from config:", err)
 			}
+
+			config.AofRewriteMinSize = viper.GetSizeInBytes("auto-aof-rewrite-min-size")
 		})
 	})
 

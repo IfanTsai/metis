@@ -23,6 +23,8 @@ var commandTable = []command{
 	{"ping", pingCommand, 1},
 	{"select", selectCommand, 2},
 	{"auth", authCommand, 2},
+	// server
+	{"bgrewriteaof", bgRewriteAofCommand, 1},
 	// key
 	{"expire", expireCommand, 3},
 	{"expireat", expireAtCommand, 3},
@@ -40,7 +42,6 @@ var commandTable = []command{
 	{"hexists", hExistsCommand, 3},
 	{"hkeys", hKeysCommand, 2},
 	{"hlen", hLenCommand, 2},
-
 	// list
 	{"lpush", lPushCommand, -3},
 	{"rpush", rPushCommand, -3},
@@ -133,7 +134,7 @@ func call(client *Client, cmd *command) error {
 	}
 	dirty = client.srv.dirty - dirty
 
-	if client.srv.appendOnly && dirty != 0 {
+	if client.srv.aofEnable && dirty != 0 {
 		feedAppendOnlyFile(client.srv, cmd, client.db.ID, client.args)
 	}
 

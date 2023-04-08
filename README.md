@@ -2,47 +2,17 @@
 
 A simple Redis server clone written in Golang.
 
-### Command
+### Features
 
-You can use redis-cli to connect to metis. Supported commands are listed below.
+You can use redis-cli to connect to metis server. Supported commands are listed in [command table](https://github.com/IfanTsai/metis/blob/master/server/command.go#L21).
 
-- PING
-- SELECT
-- AUTH
-- SET
-- GET
-- KEYS
-- EXPIRE
-- TTL
-- RANDOMKEY
-- HSET
-- HGET
-- HDEL
-- LPUSH
-- RPUSH
-- LPOP
-- RPOP
-- LLEN
-- LINDEX
-- LRANGE
-- SADD
-- SREM
-- SPOP
-- SCARD
-- SISMEMBER
-- SMEMBERS
-- SDIFF
-- SINTER
-- SUNION
-- ZADD
-- ZRANGE
-- ZRANGEBYSCORE
-- ZREM
-- ZREMBYRANK
-- ZREMBYSCORE
-- ZCARD
-- ZCOUNT
-- ZSCORE
+Key Features:
+
+- Support datastructures: string, list, hash, set, sorted set
+- Multi databases and `SELECT` command
+- TTL for keys, support `EXPIRE` and `TTL` commands 
+- Auth by password, support `AUTH` command
+- AOF persistence and rewrite, support rewrite manually by `BGREWRITEAOF` command
 
 ### Run
 
