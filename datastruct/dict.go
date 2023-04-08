@@ -269,6 +269,18 @@ func (d *Dict) Size() int64 {
 	return d.hashTables[0].used
 }
 
+func (d *Dict) DeepCopy() *Dict {
+	iter := NewDictIterator(d)
+	defer iter.Release()
+
+	dict := NewDict(d.DictType)
+	for entry := iter.Next(); entry != nil; entry = iter.Next() {
+		dict.Set(entry.Key, entry.Value)
+	}
+
+	return dict
+}
+
 // keyIndex returns the index of a free slot that can be used to store the given key.
 // if the key already exists, -1 is returned.
 // Note that if it is in the process of rehashing, the index is always returned in the second (new) hash table.

@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -19,7 +20,15 @@ const (
 	defaultDBNum          = 16
 	maxBulk               = 1024 * 4
 	checkExpireEntryCount = 100
-	checkExpireInterval   = 100
+	serverCronInterval    = 1
+)
+
+type TypeBackgroundTask uint8
+
+const (
+	TypeBackgroundTaskNone TypeBackgroundTask = iota
+	TypeBackgroundTaskRDB
+	TypeBackgroundTaskAOFRewrite
 )
 
 type Server struct {
@@ -32,14 +41,23 @@ type Server struct {
 	requirePassword string
 	dirty           int64 // changes to DB from the last save
 
-	// aof
-	appendOnly       bool
-	appendFilename   string
-	appendFync       config.TypeAppnedFsync
-	lastFsyncTime    time.Time
-	appendSelectDBID int
-	appendFile       *os.File
+	backgroundTaskTypeAtomic atomic.Uint32
+
+	// AOF persistence
+	aofEnable        bool
+	aofFilename      string
+	aofFsync         config.TypeAppnedFsync
+	aofLastFsyncTime time.Time
+	aofSelectDBID    int
+	aofFile          *os.File
 	aofBuf           strings.Builder
+	aofCurrentSize   uint
+
+	aofRewritePercent  uint
+	aofRewriteMinSize  uint
+	aofRewriteBaseSize uint
+	aofRewriteDoneCh   chan string // tmp aof filename
+	aofRewriteBuf      strings.Builder
 }
 
 func NewServer(config *config.Config) *Server {
@@ -49,22 +67,33 @@ func NewServer(config *config.Config) *Server {
 	}
 
 	server := &Server{
-		host:            config.Host,
-		port:            config.Port,
-		clients:         make(map[socket.FD]*Client),
-		requirePassword: config.RequirePassword,
-		appendOnly:      config.AppnedOnly,
-		appendFilename:  config.AppendFilename,
-		appendFync:      config.AppendFsync,
+		host:              config.Host,
+		port:              config.Port,
+		clients:           make(map[socket.FD]*Client),
+		requirePassword:   config.RequirePassword,
+		aofEnable:         config.AofEnable,
+		aofFilename:       config.AofFilename,
+		aofFsync:          config.AofFsync,
+		aofRewritePercent: config.AofRewritePercent,
+		aofRewriteMinSize: config.AofRewriteMinSize,
+		aofRewriteDoneCh:  make(chan string, 1),
 	}
 
-	if server.appendOnly {
-		appendFile, err := os.OpenFile(server.appendFilename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	server.backgroundTaskTypeAtomic.Store(uint32(TypeBackgroundTaskNone))
+
+	if server.aofEnable {
+		appendFile, err := os.OpenFile(server.aofFilename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Fatalf("failed to open append only file: %+v", err)
 		}
 
-		server.appendFile = appendFile
+		fileInfo, err := appendFile.Stat()
+		if err != nil {
+			log.Fatalf("failed to get append only file info: %+v", err)
+		}
+
+		server.aofCurrentSize = uint(fileInfo.Size())
+		server.aofFile = appendFile
 	}
 
 	server.dbs = make([]*database.Databse, dbNum)
@@ -91,7 +120,7 @@ func (s *Server) Run() error {
 		return err
 	}
 
-	if err := eventLoop.AddTimeEvent(ae.TypeTimeEventNormal, checkExpireInterval, expireKeyCronJob, s); err != nil {
+	if err := eventLoop.AddTimeEvent(ae.TypeTimeEventNormal, serverCronInterval, serverCron, s); err != nil {
 		return err
 	}
 
@@ -100,8 +129,7 @@ func (s *Server) Run() error {
 	s.fd = listenFd
 	s.eventLoop = eventLoop
 
-	// TODO: load data from append only file
-	if s.appendOnly {
+	if s.aofEnable {
 		loadAppendOnlyFile(s)
 	}
 
@@ -111,9 +139,10 @@ func (s *Server) Run() error {
 func (s *Server) Stop() {
 	s.eventLoop.Stop()
 	s.fd.Close()
+	close(s.aofRewriteDoneCh)
 
-	if s.appendFile != nil {
-		s.appendFile.Close()
+	if s.aofFile != nil {
+		s.aofFile.Close()
 	}
 }
 
@@ -217,8 +246,31 @@ func sendReplayToClient(el *ae.EventLoop, fd socket.FD, clientData any) {
 	}
 }
 
-func expireKeyCronJob(el *ae.EventLoop, id int64, clientData any) {
+func serverCron(el *ae.EventLoop, id int64, clientData any) {
 	srv := clientData.(*Server)
+
+	databasesCron(srv)
+
+	if srv.backgroundTaskTypeAtomic.Load() == uint32(TypeBackgroundTaskNone) &&
+		srv.aofRewritePercent > 0 && srv.aofCurrentSize > srv.aofRewriteMinSize {
+		base := srv.aofRewriteBaseSize
+		if base == 0 {
+			base = 1
+		}
+
+		growth := (srv.aofCurrentSize * 100 / base) - 100
+		if growth >= srv.aofRewritePercent {
+			rewriteAppendOnlyFileBackground(srv)
+		}
+	}
+
+	if len(srv.aofRewriteDoneCh) > 0 {
+		aofRewriteDoneCallback(srv)
+	}
+}
+
+func databasesCron(srv *Server) {
+	// expire keys by random sampling.
 	for _, db := range srv.dbs {
 		for i := 0; i < checkExpireEntryCount; i++ {
 			entry := db.Expire.GetRandomKey()

@@ -17,3 +17,11 @@ func NewDatabase(id int) *Databse {
 		Expire: datastruct.NewDict(&DictType{}),
 	}
 }
+
+func (db *Databse) DeepCopy() *Databse {
+	newDB := NewDatabase(db.ID)
+	newDB.Dict = db.Dict.DeepCopy()
+	newDB.Expire = db.Expire.DeepCopy()
+
+	return newDB
+}
