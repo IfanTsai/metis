@@ -1,13 +1,16 @@
 package cmd
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 
+	"go.uber.org/zap"
+
 	"github.com/IfanTsai/metis/config"
+	"github.com/IfanTsai/metis/log"
 	"github.com/IfanTsai/metis/server"
 	"github.com/spf13/cobra"
 )
@@ -30,15 +33,16 @@ func init() {
 
 func run(configFile string) {
 	cfg := config.LoadConfig(configFile, filepath.Ext(configFile)[1:])
+	log.InitLogger(cfg)
 	metisServer := server.NewServer(cfg)
 
 	go func() {
 		if err := metisServer.Run(); err != nil {
-			log.Panicln("metis server run error: ", err)
+			log.Panic("metis server run error", zap.Error(err))
 		}
 	}()
 
-	log.Printf("metis server is running on %s:%d", cfg.Host, cfg.Port)
+	log.Info(fmt.Sprintf("metis server is running on %s:%d", cfg.Host, cfg.Port))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -49,6 +53,6 @@ func run(configFile string) {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }

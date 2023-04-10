@@ -3,6 +3,10 @@ port = 6379
 databases = 16
 #requirepass = "admin"
 
+logfile = "./logs/redis.log"
+# debug | info | warn | error
+loglevel = "debug"
+
 appendonly = true
 appendfilename = "appendonly.aof"
 appendfsync = "everysec"
