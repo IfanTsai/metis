@@ -1,7 +1,6 @@
 package server
 
 import (
-	"log"
 	"regexp"
 	"strconv"
 	"time"
@@ -85,7 +84,7 @@ func keysCommand(client *Client) error {
 		if matched {
 			expired, err := expireIfNeeded(client, entry.Key.(string))
 			if err != nil {
-				log.Println("expireIfNeeded error:", err)
+				return client.addReplyError(err.Error())
 			}
 
 			if !expired {

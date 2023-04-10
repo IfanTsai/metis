@@ -24,8 +24,11 @@
 # Go workspace file
 go.work
 
-./bin/*
+bin/*
 .idea
+
+# metis log file
+logs/
 
 # metis AOF file
 *.aof

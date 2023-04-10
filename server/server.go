@@ -1,17 +1,19 @@
 package server
 
 import (
-	"log"
 	"os"
 	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/IfanTsai/go-lib/utils/byteutils"
 	"github.com/IfanTsai/metis/ae"
 	"github.com/IfanTsai/metis/config"
 	"github.com/IfanTsai/metis/database"
+	"github.com/IfanTsai/metis/log"
 	"github.com/IfanTsai/metis/socket"
 	"github.com/pkg/errors"
 )
@@ -84,12 +86,12 @@ func NewServer(config *config.Config) *Server {
 	if server.aofEnable {
 		appendFile, err := os.OpenFile(server.aofFilename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
-			log.Fatalf("failed to open append only file: %+v", err)
+			log.Fatal("failed to open append only file", zap.Error(err))
 		}
 
 		fileInfo, err := appendFile.Stat()
 		if err != nil {
-			log.Fatalf("failed to get append only file info: %+v", err)
+			log.Fatal("failed to get append only file info", zap.Error(err))
 		}
 
 		server.aofCurrentSize = uint(fileInfo.Size())
@@ -107,7 +109,7 @@ func NewServer(config *config.Config) *Server {
 func (s *Server) Run() error {
 	listenFd, err := CreateTCPServer(s.host, s.port)
 	if err != nil {
-		log.Fatalf("failed to create tcp server: %+v", err)
+		log.Fatal("failed to create tcp server", zap.Error(err))
 	}
 	defer listenFd.Close()
 
@@ -149,13 +151,13 @@ func (s *Server) Stop() {
 func acceptTCPHandler(el *ae.EventLoop, fd socket.FD, extra any) {
 	clientFd, err := fd.Accept()
 	if err != nil {
-		log.Printf("failed to accept: %v", err)
+		log.Error("failed to accept", zap.Error(err))
 
 		return
 	}
 
 	if err := clientFd.SetNonBlock(); err != nil {
-		log.Printf("failed to set non block: %v", err)
+		log.Error("failed to set non block", zap.Error(err))
 		clientFd.Close()
 
 		return
@@ -165,7 +167,7 @@ func acceptTCPHandler(el *ae.EventLoop, fd socket.FD, extra any) {
 	client := NewClient(srv, clientFd)
 
 	if err := el.AddFileEvent(clientFd, ae.TypeFileEventReadable, readQueryFromClient, client); err != nil {
-		log.Printf("failed to add file event: %v", err)
+		log.Error("failed to add file event", zap.Error(err))
 		client.free()
 
 		return
@@ -188,7 +190,7 @@ func readQueryFromClient(el *ae.EventLoop, fd socket.FD, clientData any) {
 		case syscall.ECONNRESET:
 			nRead = 0
 		default:
-			log.Printf("read error: %v", err)
+			log.Error("failed to read", zap.Error(err))
 
 			return
 		}
@@ -202,7 +204,7 @@ func readQueryFromClient(el *ae.EventLoop, fd socket.FD, clientData any) {
 
 	client.queryLen += nRead
 	if err := processInputBuffer(client); err != nil {
-		log.Printf("process input buffer error: %v", err)
+		log.Error("failed to process input buffer", zap.Error(err))
 		client.free()
 
 		return
@@ -220,7 +222,7 @@ func sendReplayToClient(el *ae.EventLoop, fd socket.FD, clientData any) {
 				switch errors.Cause(err).(syscall.Errno) {
 				case syscall.EAGAIN, syscall.EINTR:
 				default:
-					log.Printf("write error: %v", err)
+					log.Error("failed to write", zap.Error(err))
 					client.free()
 				}
 
@@ -239,7 +241,7 @@ func sendReplayToClient(el *ae.EventLoop, fd socket.FD, clientData any) {
 
 	if client.replayHead.Len() == 0 {
 		if err := el.RemoveFileEvent(client.fd, ae.TypeFileEventWritable); err != nil {
-			log.Printf("failed to remove file event: %v", err)
+			log.Error("failed to remove file event", zap.Error(err))
 
 			return
 		}
@@ -280,7 +282,8 @@ func databasesCron(srv *Server) {
 
 			when, ok := entry.Value.(int64)
 			if !ok {
-				log.Printf("invalid expire value: %v, key: %v\n", entry.Value, entry.Key)
+				log.Error("invalid expire value",
+					zap.Any("value", entry.Value), zap.Any("key", entry.Key))
 				continue
 			}
 

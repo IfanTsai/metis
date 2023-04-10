@@ -1,11 +1,12 @@
 package datastruct
 
 import (
-	"log"
 	"math"
 	"math/rand"
 
+	"github.com/IfanTsai/metis/log"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 const (
@@ -286,7 +287,7 @@ func (d *Dict) DeepCopy() *Dict {
 // Note that if it is in the process of rehashing, the index is always returned in the second (new) hash table.
 func (d *Dict) keyIndex(key any) int64 {
 	if err := d.expandIfNeeded(); err != nil {
-		log.Println(err)
+		log.Error("failed to expand dict", zap.Error(err))
 
 		return -1
 	}

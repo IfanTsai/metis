@@ -1,7 +1,6 @@
 package server
 
 import (
-	"log"
 	"strconv"
 	"time"
 
@@ -63,7 +62,7 @@ func randomGetCommand(client *Client) error {
 
 		expired, err := expireIfNeeded(client, entry.Key.(string))
 		if err != nil {
-			log.Println("expireIfNeeded error:", err)
+			return client.addReplyError(err.Error())
 		}
 
 		if !expired {

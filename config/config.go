@@ -13,7 +13,10 @@ var (
 	config Config
 )
 
-type TypeAppnedFsync string
+type (
+	TypeAppnedFsync string
+	LogLevel        string
+)
 
 const (
 	TypeAppendFsyncAlways      TypeAppnedFsync = "always"
@@ -21,9 +24,18 @@ const (
 	TypeAppendFsyncNever       TypeAppnedFsync = "no"
 )
 
+const (
+	LogLevelDebug LogLevel = "debug"
+	LogLevelInfo  LogLevel = "info"
+	LogLevelWarn  LogLevel = "warn"
+	LogLevelError LogLevel = "error"
+)
+
 type Config struct {
 	Host              string          `mapstructure:"bind"`
 	Port              uint16          `mapstructure:"port"`
+	LogFilepath       string          `mapstructure:"logfile"`
+	LogLevel          LogLevel        `mapstructure:"loglevel"`
 	DatabaseNum       int             `mapstructure:"databases"`
 	RequirePassword   string          `mapstructure:"requirepass"`
 	AofEnable         bool            `mapstructure:"appendonly"`

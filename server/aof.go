@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"strconv"
@@ -15,8 +14,10 @@ import (
 	"github.com/IfanTsai/metis/config"
 	"github.com/IfanTsai/metis/database"
 	"github.com/IfanTsai/metis/datastruct"
+	"github.com/IfanTsai/metis/log"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 const (
@@ -60,7 +61,7 @@ func feedAppendOnlyFile(srv *Server, cmd *command, dbID int, args []string) {
 func catAppendOnlyExpireCommand(args []string) string {
 	expireInt, err := strconv.ParseInt(args[2], 10, 64)
 	if err != nil {
-		log.Fatalf("Failed to parse expire time: %v", err)
+		log.Fatal("failed to parse expire time", zap.Error(err))
 	}
 
 	when := time.Now().Unix() + expireInt
@@ -99,7 +100,7 @@ func flushAppendOnlyFile(srv *Server) {
 	aofStr := srv.aofBuf.String()
 	nWritten, err := srv.aofFile.WriteString(aofStr)
 	if err != nil {
-		log.Fatalf("Failed to write to AOF file: %v", err)
+		log.Fatal("failed to write to aof file", zap.Error(err))
 	}
 
 	srv.aofBuf.Reset()
@@ -117,12 +118,12 @@ func aofFileSync(srv *Server) {
 		switch srv.aofFsync {
 		case config.TypeAppendFsyncAlways:
 			if err := srv.aofFile.Sync(); err != nil {
-				log.Panicf("Failed to fsync the AOF file: %v", err)
+				log.Panic("failed to fsync the AOF file", zap.Error(err))
 			}
 		case config.TypeAppendFsyncEverySecond:
 			go func() {
 				if err := srv.aofFile.Sync(); err != nil {
-					log.Panicf("Failed to fsync the AOF file: %v", err)
+					log.Panic("failed to fsync the AOF file", zap.Error(err))
 				}
 			}()
 		}
@@ -145,7 +146,7 @@ func loadAppendOnlyFile(srv *Server) {
 
 	aofFile, err := os.Open(srv.aofFilename)
 	if err != nil {
-		log.Fatalf("Failed to open AOF file: %v", err)
+		log.Fatal("failed to open aof file", zap.Error(err))
 	}
 	defer aofFile.Close()
 
@@ -160,42 +161,42 @@ func loadAppendOnlyFile(srv *Server) {
 				break
 			}
 
-			log.Panicf("Failed to read AOF file: %v", err)
+			log.Panic("failed to read aof file", zap.Error(err))
 		}
 
 		if buf[0] != '*' {
-			log.Panicf("Invalid AOF file format: %v", err)
+			log.Panic("invalid aof file format")
 		}
 
 		argc, err := strconv.Atoi(buf[1:])
 		if err != nil {
-			log.Panicf("Invalid AOF file format: %v", err)
+			log.Panic("invalid aof file format", zap.Error(err))
 		}
 
 		args := make([]string, argc)
 		for i := 0; i < argc; i++ {
 			buf, err = readLine(reader)
 			if err != nil {
-				log.Panicf("Failed to read AOF file: %v", err)
+				log.Panic("failed to read aof file", zap.Error(err))
 			}
 
 			if buf[0] != '$' {
-				log.Panicf("Invalid AOF file format: %v", err)
+				log.Panic("invalid aof file format")
 			}
 
 			argLen, err := strconv.Atoi(buf[1:])
 			if err != nil {
-				log.Panicf("Invalid AOF file format: %v", err)
+				log.Panic("invalid aof file format", zap.Error(err))
 			}
 
 			arg := make([]byte, argLen)
 			if _, err := reader.Read(arg); err != nil {
-				log.Panicf("Failed to read AOF file: %v", err)
+				log.Panic("failed to read aof file", zap.Error(err))
 			}
 
 			// discard CRLF
 			if _, err := reader.Read(make([]byte, 2)); err != nil {
-				log.Panicf("Failed to read AOF file: %v", err)
+				log.Panic("failed to read aof file", zap.Error(err))
 			}
 
 			args[i] = byteutils.B2S(arg)
@@ -203,7 +204,8 @@ func loadAppendOnlyFile(srv *Server) {
 
 		cmd := lookupCommand(strings.ToLower(args[0]))
 		if cmd == nil {
-			log.Panicf("Unknown command '%s' reading the append only file", args[0])
+			log.Error("unknown command", zap.String("command", args[0]))
+			continue
 		}
 
 		fakeClient.args = args
@@ -229,7 +231,7 @@ func rewriteAppendOnlyFileBackground(srv *Server) {
 func rewriteAppendOnlyFile(dbs []*database.Databse, srv *Server) {
 	tmpFile, err := os.CreateTemp("", AofRewriteTempFilePrefix)
 	if err != nil {
-		log.Panicf("Failed to create temp file: %v", err)
+		log.Panic("failed to create temp file", zap.Error(err))
 	}
 	defer tmpFile.Close()
 
@@ -240,7 +242,7 @@ func rewriteAppendOnlyFile(dbs []*database.Databse, srv *Server) {
 		}
 
 		if _, err := tmpFile.WriteString(catAppendOnlyGenericCommand([]string{"select", strconv.Itoa(db.ID)})); err != nil {
-			log.Panicf("Failed to write to AOF file: %v", err)
+			log.Panic("failed to write to AOF file", zap.Error(err))
 		}
 
 		iter := datastruct.NewDictIterator(db.Dict)
@@ -261,17 +263,17 @@ func rewriteAppendOnlyFile(dbs []*database.Databse, srv *Server) {
 			case *datastruct.Zset:
 				err = rewriteZsetObject(tmpFile, key, value)
 			default:
-				log.Panicf("Unknown object type: %T", value)
+				log.Panic("unknown object type", zap.Any("type", value))
 			}
 
 			if err != nil {
-				log.Panicf("Failed to write to AOF file: %v", err)
+				log.Panic("failed to write to AOF file", zap.Error(err))
 			}
 
 			if entry := db.Expire.Find(key); entry != nil {
 				when := strconv.FormatInt(entry.Value.(int64)/1000, 10)
 				if _, err := tmpFile.WriteString(catAppendOnlyGenericCommand([]string{"expireat", key, when})); err != nil {
-					log.Panicf("Failed to write to AOF file: %v", err)
+					log.Panic("failed to write to AOF file", zap.Error(err))
 				}
 			}
 		}
@@ -376,18 +378,22 @@ func aofRewriteDoneCallback(srv *Server) {
 
 	// occurs error "invalid cross-device link" if use os.Rename
 	if err := exec.Command("mv", tmpAofFilename, srv.aofFilename).Run(); err != nil {
-		log.Panicf("failed to mv: %v", err)
+		log.Panic("failed to mv",
+			zap.Error(err),
+			zap.String("from", tmpAofFilename),
+			zap.String("to", srv.aofFilename))
 	}
 
 	aofFile, err := os.OpenFile(srv.aofFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Panicf("failed to open file: %v", err)
+		log.Panic("failed to open file",
+			zap.Error(err), zap.String("filename", srv.aofFilename))
 	}
 
 	//  append AOF rewrite buffer to AOF file
 	if srv.aofRewriteBuf.Len() > 0 {
 		if _, err := aofFile.WriteString(srv.aofRewriteBuf.String()); err != nil {
-			log.Panicf("failed to write to AOF file: %v", err)
+			log.Panic("failed to write to AOF file", zap.Error(err))
 		}
 	}
 
@@ -395,7 +401,7 @@ func aofRewriteDoneCallback(srv *Server) {
 
 	fileInfo, err := aofFile.Stat()
 	if err != nil {
-		log.Panicf("failed to stat file: %v", err)
+		log.Panic("failed to stat file", zap.Error(err))
 	}
 
 	srv.aofCurrentSize = uint(fileInfo.Size())

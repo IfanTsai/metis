@@ -10,7 +10,7 @@ type DictType struct{}
 
 func (d *DictType) Hash(a any) int64 {
 	hash := fnv.New64a()
-	hash.Write(byteutils.S2B(a.(string)))
+	_, _ = hash.Write(byteutils.S2B(a.(string)))
 
 	return int64(hash.Sum64())
 }
